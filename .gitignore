@@ -1,0 +1,30 @@
+# Dependencias
+node_modules/
+**/node_modules/
+
+# Base de datos local (se regenera con el seed)
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
+
+# Logs de servidores de desarrollo
+**/server_err.txt
+**/server_out.txt
+**/expo_err.txt
+**/expo_out.txt
+*.log
+
+# Expo / Metro
+.expo/
+.expo-shared/
+web-build/
+dist/
+
+# Configuración local de Claude / editor
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

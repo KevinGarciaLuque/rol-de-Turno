@@ -1,0 +1,107 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../constants/theme';
+
+import DashboardScreen  from '../screens/DashboardScreen';
+import ScheduleScreen   from '../screens/ScheduleScreen';
+import EmployeesScreen  from '../screens/EmployeesScreen';
+import ReportsScreen    from '../screens/ReportsScreen';
+
+const Tab   = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+function DashboardStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' } }}>
+      <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Rol de Turno' }} />
+      <Stack.Screen name="Schedule"  component={ScheduleScreen}  options={({ route }) => ({ title: route.params?.departmentName || 'Programación' })} />
+    </Stack.Navigator>
+  );
+}
+
+function ScheduleStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' } }}>
+      <Stack.Screen name="ScheduleSelect" component={DepartmentSelect} options={{ title: 'Seleccionar Área' }} />
+      <Stack.Screen name="Schedule" component={ScheduleScreen} options={({ route }) => ({ title: route.params?.departmentName || 'Programación' })} />
+    </Stack.Navigator>
+  );
+}
+
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Surface } from 'react-native-paper';
+import { api } from '../api/client';
+import { useState, useEffect } from 'react';
+
+function DepartmentSelect({ navigation }) {
+  const [departments, setDepts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getDepartments().then(d => { setDepts(d); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}><ActivityIndicator color={COLORS.primary} /></View>;
+
+  return (
+    <View style={{ flex:1, backgroundColor: COLORS.bg, padding: 16, gap: 12 }}>
+      <Text style={{ fontSize:18, fontWeight:'700', color: COLORS.text, marginBottom: 8 }}>Selecciona un área para ver su rol:</Text>
+      {departments.map(d => (
+        <TouchableOpacity key={d.id} onPress={() => navigation.navigate('Schedule', { departmentId: d.id, departmentName: d.name })}>
+          <Surface style={{ padding: 20, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }} elevation={2}>
+            <Ionicons name={d.id === 1 ? 'water-outline' : 'pulse-outline'} size={28} color={COLORS.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: COLORS.text }}>{d.name}</Text>
+              <Text style={{ fontSize: 13, color: COLORS.textLight }}>{d.supervisor}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          </Surface>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+export default function AppNavigator() {
+  return (
+    <NavigationContainer>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarActiveTintColor: COLORS.primary,
+          tabBarInactiveTintColor: COLORS.textLight,
+          tabBarStyle: { backgroundColor: '#fff', borderTopColor: COLORS.border, height: 60, paddingBottom: 8 },
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+          tabBarIcon: ({ focused, color, size }) => {
+            const icons = {
+              Home:      focused ? 'home' : 'home-outline',
+              Horario:   focused ? 'calendar' : 'calendar-outline',
+              Personal:  focused ? 'people' : 'people-outline',
+              Reportes:  focused ? 'bar-chart' : 'bar-chart-outline',
+            };
+            return <Ionicons name={icons[route.name] || 'ellipse-outline'} size={size} color={color} />;
+          },
+        })}
+      >
+        <Tab.Screen name="Home"     component={DashboardStack} options={{ title: 'Inicio' }} />
+        <Tab.Screen name="Horario"  component={ScheduleStack}  options={{ title: 'Horario' }} />
+        <Tab.Screen name="Personal" component={withHeader(EmployeesScreen, 'Personal')}  options={{ title: 'Personal' }} />
+        <Tab.Screen name="Reportes" component={withHeader(ReportsScreen,   'Reportes')}  options={{ title: 'Reportes' }} />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}
+
+function withHeader(Component, title) {
+  const Wrapped = (props) => {
+    return (
+      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' } }}>
+        <Stack.Screen name={title} component={Component} options={{ title }} />
+      </Stack.Navigator>
+    );
+  };
+  return Wrapped;
+}
