@@ -4,19 +4,33 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
 import DashboardScreen  from '../screens/DashboardScreen';
 import ScheduleScreen   from '../screens/ScheduleScreen';
 import EmployeesScreen  from '../screens/EmployeesScreen';
 import ReportsScreen    from '../screens/ReportsScreen';
+import LoginScreen      from '../screens/LoginScreen';
+import AdminScreen      from '../screens/AdminScreen';
 
 const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
+// Botón de cerrar sesión + nombre del usuario, para el header
+function HeaderLogout() {
+  const { user, logout } = useAuth();
+  return (
+    <TouchableOpacity onPress={logout} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12 }}>
+      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{user?.full_name}</Text>
+      <Ionicons name="log-out-outline" size={22} color="#fff" />
+    </TouchableOpacity>
+  );
+}
+
 function DashboardStack() {
   return (
     <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' } }}>
-      <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Rol de Turno' }} />
+      <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Rol de Turno', headerRight: () => <HeaderLogout /> }} />
       <Stack.Screen name="Schedule"  component={ScheduleScreen}  options={({ route }) => ({ title: route.params?.departmentName || 'Programación' })} />
     </Stack.Navigator>
   );
@@ -66,6 +80,26 @@ function DepartmentSelect({ navigation }) {
 }
 
 export default function AppNavigator() {
+  const { isAuthenticated, loading, isAdmin } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bg }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -81,6 +115,7 @@ export default function AppNavigator() {
               Horario:   focused ? 'calendar' : 'calendar-outline',
               Personal:  focused ? 'people' : 'people-outline',
               Reportes:  focused ? 'bar-chart' : 'bar-chart-outline',
+              Admin:     focused ? 'shield' : 'shield-outline',
             };
             return <Ionicons name={icons[route.name] || 'ellipse-outline'} size={size} color={color} />;
           },
@@ -90,6 +125,9 @@ export default function AppNavigator() {
         <Tab.Screen name="Horario"  component={ScheduleStack}  options={{ title: 'Horario' }} />
         <Tab.Screen name="Personal" component={withHeader(EmployeesScreen, 'Personal')}  options={{ title: 'Personal' }} />
         <Tab.Screen name="Reportes" component={withHeader(ReportsScreen,   'Reportes')}  options={{ title: 'Reportes' }} />
+        {isAdmin && (
+          <Tab.Screen name="Admin" component={withHeader(AdminScreen, 'Administración')} options={{ title: 'Admin' }} />
+        )}
       </Tab.Navigator>
     </NavigationContainer>
   );

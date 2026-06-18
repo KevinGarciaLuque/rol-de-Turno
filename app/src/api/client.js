@@ -15,10 +15,43 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Token en memoria; el AuthContext lo fija al iniciar sesión / restaurar sesión.
+let _token = null;
+let _onUnauthorized = null;
+
+export function setAuthToken(token) {
+  _token = token;
+  if (token) client.defaults.headers.common.Authorization = `Bearer ${token}`;
+  else delete client.defaults.headers.common.Authorization;
+}
+
+// Callback que se dispara cuando el backend responde 401 (sesión expirada)
+export function setUnauthorizedHandler(fn) { _onUnauthorized = fn; }
+
+client.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    if (error.response?.status === 401 && _onUnauthorized) _onUnauthorized();
+    return Promise.reject(error);
+  }
+);
+
 export const api = {
+  // Auth
+  login: (username, password) => client.post('/auth/login', { username, password }).then(r => r.data),
+  me:    () => client.get('/auth/me').then(r => r.data),
+
+  // Users (solo Admin)
+  getUsers:   () => client.get('/users').then(r => r.data),
+  createUser: (data) => client.post('/users', data).then(r => r.data),
+  updateUser: (id, data) => client.put(`/users/${id}`, data).then(r => r.data),
+  deleteUser: (id) => client.delete(`/users/${id}`).then(r => r.data),
+
   // Departments
   getDepartments: () => client.get('/departments').then(r => r.data),
   getDepartment:  (id) => client.get(`/departments/${id}`).then(r => r.data),
+  createDepartment: (data) => client.post('/departments', data).then(r => r.data),
+  updateDepartment: (id, data) => client.put(`/departments/${id}`, data).then(r => r.data),
 
   // Employees
   getEmployees: (params) => client.get('/employees', { params }).then(r => r.data),

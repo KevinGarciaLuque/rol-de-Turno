@@ -1,6 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
+const { authenticate, userCanAccessDepartment } = require('../middleware/auth');
+
+router.use(authenticate);
+
+async function ensureCanEdit(req, res, db, departmentId) {
+  if (req.user.role === 'lector') {
+    res.status(403).json({ error: 'No tienes permiso para editar el horario' });
+    return false;
+  }
+  const ok = await userCanAccessDepartment(db, req.user, departmentId);
+  if (!ok) {
+    res.status(403).json({ error: 'No tienes acceso a esta área' });
+    return false;
+  }
+  return true;
+}
 
 async function getOrCreateScheduleMonth(db, departmentId, year, month) {
   let sm = await db.get(`SELECT * FROM schedule_months WHERE department_id=? AND year=? AND month=?`, [departmentId, year, month]);
@@ -81,10 +97,11 @@ router.put('/entry', async (req, res, next) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     const db = await getDb();
+    if (!(await ensureCanEdit(req, res, db, department_id))) return;
     const sm = await getOrCreateScheduleMonth(db, department_id, year, month);
     await db.run(`
       INSERT INTO schedule_entries (schedule_month_id,employee_id,day,shift_code) VALUES (?,?,?,?)
-      ON CONFLICT(schedule_month_id,employee_id,day) DO UPDATE SET shift_code=excluded.shift_code, updated_at=CURRENT_TIMESTAMP
+      ON DUPLICATE KEY UPDATE shift_code=VALUES(shift_code), updated_at=CURRENT_TIMESTAMP
     `, [sm.id, employee_id, day, shift_code]);
     res.json({ success: true });
   } catch (e) { next(e); }
@@ -96,6 +113,9 @@ router.put('/:scheduleMonthId/status', async (req, res, next) => {
     const { status } = req.body;
     if (!['draft','published','closed'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
     const db = await getDb();
+    const sm = await db.get('SELECT department_id FROM schedule_months WHERE id=?', req.params.scheduleMonthId);
+    if (!sm) return res.status(404).json({ error: 'Programación no encontrada' });
+    if (!(await ensureCanEdit(req, res, db, sm.department_id))) return;
     await db.run(`UPDATE schedule_months SET status=? WHERE id=?`, [status, req.params.scheduleMonthId]);
     res.json({ success: true });
   } catch (e) { next(e); }

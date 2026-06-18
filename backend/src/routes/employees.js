@@ -1,6 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
+const { authenticate, userCanAccessDepartment } = require('../middleware/auth');
+
+router.use(authenticate);
+
+// Permite escribir solo a admin/supervisor/jefe que tengan acceso al área dada
+async function ensureCanManage(req, res, db, departmentId) {
+  if (req.user.role === 'lector') {
+    res.status(403).json({ error: 'No tienes permiso para esta acción' });
+    return false;
+  }
+  const ok = await userCanAccessDepartment(db, req.user, departmentId);
+  if (!ok) {
+    res.status(403).json({ error: 'No tienes acceso a esta área' });
+    return false;
+  }
+  return true;
+}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -29,6 +46,7 @@ router.post('/', async (req, res, next) => {
     const { department_id, clave, name, category, role, observations } = req.body;
     if (!department_id || !name || !category) return res.status(400).json({ error: 'department_id, name and category are required' });
     const db = await getDb();
+    if (!(await ensureCanManage(req, res, db, department_id))) return;
     const r = await db.run(`INSERT INTO employees (department_id,clave,name,category,role,observations) VALUES (?,?,?,?,?,?)`,
       [department_id, clave, name, category, role || 'rotativa', observations]);
     res.status(201).json({ id: r.lastID, name });
@@ -39,6 +57,9 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { clave, name, category, role, observations, is_active } = req.body;
     const db = await getDb();
+    const emp = await db.get('SELECT department_id FROM employees WHERE id=?', req.params.id);
+    if (!emp) return res.status(404).json({ error: 'Empleado no encontrado' });
+    if (!(await ensureCanManage(req, res, db, emp.department_id))) return;
     await db.run(`UPDATE employees SET clave=?,name=?,category=?,role=?,observations=?,is_active=? WHERE id=?`,
       [clave, name, category, role, observations, is_active ?? 1, req.params.id]);
     res.json({ success: true });
@@ -48,6 +69,9 @@ router.put('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const db = await getDb();
+    const emp = await db.get('SELECT department_id FROM employees WHERE id=?', req.params.id);
+    if (!emp) return res.status(404).json({ error: 'Empleado no encontrado' });
+    if (!(await ensureCanManage(req, res, db, emp.department_id))) return;
     await db.run(`UPDATE employees SET is_active=0 WHERE id=?`, req.params.id);
     res.json({ success: true });
   } catch (e) { next(e); }

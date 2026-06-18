@@ -11,6 +11,7 @@ import { COLORS } from '../constants/theme';
 import ShiftCell from '../components/ShiftCell';
 import ShiftPicker from '../components/ShiftPicker';
 import { printSchedule } from '../utils/printSchedule';
+import { useAuth } from '../context/AuthContext';
 
 const CELL_W = 30;
 const CELL_H = 28;
@@ -19,6 +20,7 @@ const ROW_H  = 36;
 
 export default function ScheduleScreen({ route }) {
   const { departmentId = 1, departmentName = 'Nefrología' } = route?.params || {};
+  const { canEdit } = useAuth();
 
   const today = new Date();
   const [year, setYear]   = useState(2026);
@@ -55,6 +57,7 @@ export default function ScheduleScreen({ route }) {
   const onRefresh = () => { setRefreshing(true); load(); };
 
   const handleCellPress = (empId, day, currentCode) => {
+    if (!canEdit) return; // El rol Lector no puede editar
     setEditCell({ empId, day, currentCode });
   };
 
@@ -246,7 +249,7 @@ export default function ScheduleScreen({ route }) {
                         <ShiftCell
                           code={code}
                           size="sm"
-                          editable={true}
+                          editable={canEdit}
                           onPress={() => handleCellPress(emp.id, d, code)}
                         />
                       </View>

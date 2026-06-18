@@ -1,0 +1,111 @@
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const router = express.Router();
+const { getDb } = require('../database/db');
+const { authenticate, requireRole } = require('../middleware/auth');
+
+const VALID_ROLES = ['admin', 'supervisor', 'jefe', 'lector'];
+
+// Reemplaza las áreas asignadas a un usuario
+async function setUserDepartments(db, userId, departmentIds) {
+  await db.run('DELETE FROM user_departments WHERE user_id = ?', userId);
+  if (Array.isArray(departmentIds)) {
+    for (const did of departmentIds) {
+      await db.run('INSERT IGNORE INTO user_departments (user_id, department_id) VALUES (?, ?)', [userId, did]);
+    }
+  }
+}
+
+async function getUserDepartments(db, userId) {
+  const rows = await db.all('SELECT department_id FROM user_departments WHERE user_id = ?', userId);
+  return rows.map(r => r.department_id);
+}
+
+// Todas las rutas de aquí en adelante: solo Admin
+router.use(authenticate, requireRole('admin'));
+
+// GET /api/users  → lista de usuarios con sus áreas
+router.get('/', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const users = await db.all(
+      `SELECT id, username, full_name, role, is_active, created_at FROM users ORDER BY role, full_name`
+    );
+    for (const u of users) u.departments = await getUserDepartments(db, u.id);
+    res.json(users);
+  } catch (e) { next(e); }
+});
+
+// POST /api/users  { username, password, full_name, role, departments: [ids] }
+router.post('/', async (req, res, next) => {
+  try {
+    const { username, password, full_name, role, departments } = req.body;
+    if (!username || !password || !full_name || !role) {
+      return res.status(400).json({ error: 'username, password, full_name y role son requeridos' });
+    }
+    if (!VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: `Rol inválido. Debe ser uno de: ${VALID_ROLES.join(', ')}` });
+    }
+
+    const db = await getDb();
+    const exists = await db.get('SELECT id FROM users WHERE username = ?', username);
+    if (exists) return res.status(409).json({ error: 'Ese nombre de usuario ya existe' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const r = await db.run(
+      'INSERT INTO users (username, password_hash, full_name, role) VALUES (?,?,?,?)',
+      [username, hash, full_name, role]
+    );
+    // El admin ve todo, no necesita asignación de áreas
+    if (role !== 'admin') await setUserDepartments(db, r.lastID, departments);
+
+    res.status(201).json({ id: r.lastID, username, full_name, role });
+  } catch (e) { next(e); }
+});
+
+// PUT /api/users/:id  → editar datos, rol, áreas y (opcional) contraseña
+router.put('/:id', async (req, res, next) => {
+  try {
+    const { full_name, role, departments, is_active, password } = req.body;
+    if (role && !VALID_ROLES.includes(role)) {
+      return res.status(400).json({ error: `Rol inválido. Debe ser uno de: ${VALID_ROLES.join(', ')}` });
+    }
+
+    const db = await getDb();
+    const user = await db.get('SELECT * FROM users WHERE id = ?', req.params.id);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const newRole = role || user.role;
+    const newName = full_name ?? user.full_name;
+    const newActive = is_active ?? user.is_active;
+
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, user.id]);
+    }
+
+    await db.run(
+      'UPDATE users SET full_name = ?, role = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newName, newRole, newActive, user.id]
+    );
+
+    if (newRole === 'admin') await db.run('DELETE FROM user_departments WHERE user_id = ?', user.id);
+    else if (departments !== undefined) await setUserDepartments(db, user.id, departments);
+
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
+// DELETE /api/users/:id  → desactivar (no borra, conserva historial)
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    if (parseInt(req.params.id) === req.user.id) {
+      return res.status(400).json({ error: 'No puedes desactivar tu propio usuario' });
+    }
+    await db.run('UPDATE users SET is_active = 0 WHERE id = ?', req.params.id);
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
+module.exports = router;

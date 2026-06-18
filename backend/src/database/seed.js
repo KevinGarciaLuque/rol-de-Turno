@@ -1,4 +1,25 @@
+const bcrypt = require('bcryptjs');
 const { getDb } = require('./db');
+
+// Crea el usuario administrador inicial si todavía no existe ningún admin.
+// Corre de forma independiente del seed de datos, para no quedarse nunca sin acceso.
+async function seedUsers() {
+  const db = await getDb();
+  const admin = await db.get(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+  if (admin) return;
+
+  const username = process.env.ADMIN_USERNAME || 'admin';
+  const password = process.env.ADMIN_PASSWORD || 'admin123';
+  const hash = await bcrypt.hash(password, 10);
+
+  await db.run(
+    `INSERT INTO users (username, password_hash, full_name, role) VALUES (?,?,?,?)`,
+    [username, hash, 'Administrador', 'admin']
+  );
+
+  console.log(`\n⚠️  Usuario admin creado → usuario: "${username}"  contraseña: "${password}"`);
+  console.log('   Cámbiala después del primer ingreso.\n');
+}
 
 function parseShift(val) {
   if (val === '' || val === null || val === undefined) return 'L';
@@ -51,7 +72,7 @@ async function seed() {
   ];
 
   for (const st of shiftTypes) {
-    await db.run(`INSERT OR IGNORE INTO shift_types (code,label,description,color,text_color,is_work_shift,sort_order) VALUES (?,?,?,?,?,?,?)`,
+    await db.run(`INSERT IGNORE INTO shift_types (code,label,description,color,text_color,is_work_shift,sort_order) VALUES (?,?,?,?,?,?,?)`,
       [st.code, st.label, st.description, st.color, st.text_color, st.is_work, st.sort]);
   }
 
@@ -117,7 +138,7 @@ async function seed() {
     for (let i = 0; i < shifts.length; i++) {
       const code = parseShift(shifts[i]);
       if (code && code !== '') {
-        await db.run(`INSERT OR IGNORE INTO schedule_entries (schedule_month_id,employee_id,day,shift_code) VALUES (?,?,?,?)`,
+        await db.run(`INSERT IGNORE INTO schedule_entries (schedule_month_id,employee_id,day,shift_code) VALUES (?,?,?,?)`,
           [schedId, empId, i + 1, code]);
       }
     }
@@ -165,4 +186,4 @@ async function seed() {
   console.log('Database seeded successfully!');
 }
 
-module.exports = { seed };
+module.exports = { seed, seedUsers };
