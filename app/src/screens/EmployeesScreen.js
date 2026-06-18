@@ -299,11 +299,11 @@ const styles = StyleSheet.create({
   searchBar: { flexDirection: 'row', alignItems: 'center', margin: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, gap: 10, backgroundColor: COLORS.surface },
   searchInput: { flex: 1, fontSize: 15, color: COLORS.text },
 
-  filterRow: { maxHeight: 44 },
-  filterContent: { paddingHorizontal: 12, gap: 8, alignItems: 'center' },
+  filterRow: { flexGrow: 0, marginBottom: 4 },
+  filterContent: { paddingHorizontal: 12, gap: 8, alignItems: 'center', paddingVertical: 6 },
   chip: { marginRight: 4 },
 
-  count: { fontSize: 13, color: COLORS.textLight, marginHorizontal: 16, marginBottom: 8 },
+  count: { fontSize: 13, color: COLORS.textLight, marginHorizontal: 16, marginTop: 4, marginBottom: 8 },
 
   list: { paddingHorizontal: 12, paddingBottom: 80, gap: 8 },
 
