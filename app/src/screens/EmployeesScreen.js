@@ -135,18 +135,17 @@ export default function EmployeesScreen() {
         {search ? <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close-circle" size={20} color={COLORS.textLight} /></TouchableOpacity> : null}
       </Surface>
 
-      {/* Filters */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
+      {/* Filters (se acomodan en varias líneas para que no se recorten) */}
+      <View style={styles.filterRow}>
         <Chip selected={filterDept === 'all'} onPress={() => setFilterDept('all')} compact style={styles.chip}>Todos los Depts.</Chip>
         {departments.map(d => (
           <Chip key={d.id} selected={String(filterDept) === String(d.id)} onPress={() => setFilterDept(d.id)} compact style={styles.chip}>{d.short_name}</Chip>
         ))}
-        <View style={{ width: 1, backgroundColor: COLORS.border, marginHorizontal: 4, height: '100%' }} />
         <Chip selected={filterCat === 'all'} onPress={() => setFilterCat('all')} compact style={styles.chip}>Todas Cat.</Chip>
         {categories.map(cat => (
           <Chip key={cat} selected={filterCat === cat} onPress={() => setFilterCat(cat)} compact style={[styles.chip, { borderColor: CATEGORY_COLOR[cat] }]}>{CATEGORY_LABELS[cat]}</Chip>
         ))}
-      </ScrollView>
+      </View>
 
       <Text style={styles.count}>{filtered.length} empleada(s)</Text>
 
@@ -299,9 +298,8 @@ const styles = StyleSheet.create({
   searchBar: { flexDirection: 'row', alignItems: 'center', margin: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, gap: 10, backgroundColor: COLORS.surface },
   searchInput: { flex: 1, fontSize: 15, color: COLORS.text },
 
-  filterRow: { flexGrow: 0, marginBottom: 4 },
-  filterContent: { paddingHorizontal: 12, gap: 8, alignItems: 'center', paddingVertical: 6 },
-  chip: { marginRight: 4 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingTop: 4, marginBottom: 4 },
+  chip: {},
 
   count: { fontSize: 13, color: COLORS.textLight, marginHorizontal: 16, marginTop: 4, marginBottom: 8 },
 
