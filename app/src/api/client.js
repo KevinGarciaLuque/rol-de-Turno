@@ -1,13 +1,19 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// For web: localhost; for Android emulator: 10.0.2.2; for real device: your machine's IP
-const BASE_URL = Platform.select({
+// Backend en la nube (Railway). Para volver a desarrollo local, cambia USE_LOCAL a true.
+const PROD_URL = 'https://rol.up.railway.app/api';
+const USE_LOCAL = false;
+
+// En desarrollo local: localhost (web/iOS) o 10.0.2.2 (emulador Android)
+const LOCAL_URL = Platform.select({
   android: 'http://10.0.2.2:3001/api',
   ios:     'http://localhost:3001/api',
   web:     'http://localhost:3001/api',
   default: 'http://localhost:3001/api',
 });
+
+const BASE_URL = USE_LOCAL ? LOCAL_URL : PROD_URL;
 
 const client = axios.create({
   baseURL: BASE_URL,
