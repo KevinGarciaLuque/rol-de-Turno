@@ -50,10 +50,11 @@ router.get('/:departmentId/:year/:month', async (req, res, next) => {
     const db = await getDb();
 
     const sm = await db.get(`SELECT * FROM schedule_months WHERE department_id=? AND year=? AND month=?`, [departmentId, year, month]);
-    if (!sm) return res.json({ scheduleMonth: null, employees: [], matrix: {}, dailyCounts: {}, employeeTotals: {} });
 
+    // Las empleadas del área se muestran SIEMPRE (existan o no turnos para ese mes).
+    // Si el mes aún no existe, se devuelven con sus casillas vacías (todas en 'L') y editables.
     const employees = await db.all(`SELECT * FROM employees WHERE department_id=? AND is_active=1 ORDER BY role DESC, category, name`, departmentId);
-    const entries = await db.all(`SELECT * FROM schedule_entries WHERE schedule_month_id=?`, sm.id);
+    const entries = sm ? await db.all(`SELECT * FROM schedule_entries WHERE schedule_month_id=?`, sm.id) : [];
 
     const matrix = {};
     entries.forEach(e => {
