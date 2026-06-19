@@ -47,6 +47,9 @@ function UsersManager({ notify }) {
   const [editing, setEditing] = useState(null); // user being edited or null (create)
   const [form, setForm] = useState(emptyUserForm);
   const [saving, setSaving] = useState(false);
+  const [testVisible, setTestVisible] = useState(false);
+  const [testTo, setTestTo] = useState('');
+  const [testing, setTesting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -117,10 +120,24 @@ function UsersManager({ notify }) {
     catch (e) { notify(e.response?.data?.error || 'No se pudo desactivar'); }
   };
 
+  const sendTest = async () => {
+    if (!testTo.trim()) return notify('Escribe un correo destino');
+    setTesting(true);
+    try {
+      const r = await api.testEmail(testTo.trim());
+      notify(r.message || 'Listo');
+      if (r.sent) setTestVisible(false);
+    } catch (e) { notify(e.response?.data?.error || 'No se pudo enviar'); }
+    finally { setTesting(false); }
+  };
+
   if (loading) return <Centered />;
 
   return (
     <>
+      <View style={styles.toolbar}>
+        <Button mode="text" icon="email-check-outline" compact onPress={() => setTestVisible(true)}>Probar correo</Button>
+      </View>
       <ScrollView contentContainerStyle={styles.list}>
         {users.map(u => (
           <TouchableOpacity key={u.id} onPress={() => openEdit(u)} activeOpacity={0.8}>
@@ -142,6 +159,19 @@ function UsersManager({ notify }) {
       </ScrollView>
 
       <FAB icon="account-plus" label="Usuario" style={styles.fab} onPress={openCreate} color="#fff" />
+
+      <Portal>
+        <Modal visible={testVisible} onDismiss={() => setTestVisible(false)} contentContainerStyle={styles.modal}>
+          <Text style={styles.modalTitle}>Probar correo</Text>
+          <Text style={styles.help}>Envía un correo de prueba para verificar la configuración SMTP en el servidor.</Text>
+          <TextInput label="Correo destino" value={testTo} onChangeText={setTestTo} mode="outlined" autoCapitalize="none" keyboardType="email-address" style={styles.input} />
+          <View style={styles.modalActions}>
+            <View style={{ flex: 1 }} />
+            <Button mode="text" onPress={() => setTestVisible(false)}>Cancelar</Button>
+            <Button mode="contained" onPress={sendTest} loading={testing} disabled={testing}>Enviar prueba</Button>
+          </View>
+        </Modal>
+      </Portal>
 
       <Portal>
         <Modal visible={modal} onDismiss={() => setModal(false)} contentContainerStyle={styles.modal}>
@@ -353,6 +383,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   tabWrap: { padding: 12 },
+  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 2 },
 
   list: { padding: 12, gap: 8 },
   card: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14, backgroundColor: COLORS.surface, gap: 12 },

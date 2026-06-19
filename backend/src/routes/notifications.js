@@ -1,9 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
+const { sendMail, mailEnabled } = require('../utils/mailer');
 
 router.use(authenticate);
+
+// POST /api/notifications/test  { to }  → envía un correo de prueba (solo admin)
+router.post('/test', requireRole('admin'), async (req, res, next) => {
+  try {
+    const to = (req.body.to || '').trim();
+    if (!to) return res.status(400).json({ error: 'Indica un correo destino' });
+    if (!mailEnabled()) {
+      return res.json({ enabled: false, sent: false, message: 'El correo no está configurado (faltan las variables SMTP_*).' });
+    }
+    const ok = await sendMail(to, 'Prueba de correo · Rol de Turno HMEP',
+      'Este es un correo de prueba del sistema Rol de Turno HMEP.\nSi lo recibiste, la configuración SMTP funciona correctamente. ✅');
+    res.json({ enabled: true, sent: ok, message: ok ? 'Correo de prueba enviado.' : 'No se pudo enviar (revisa las credenciales SMTP).' });
+  } catch (e) { next(e); }
+});
 
 // GET /api/notifications  → lista del usuario en sesión (no leídas primero)
 router.get('/', async (req, res, next) => {

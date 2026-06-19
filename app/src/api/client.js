@@ -85,6 +85,7 @@ export const api = {
   getNotifications: () => client.get('/notifications').then(r => r.data),
   markNotificationRead: (id) => client.put(`/notifications/${id}/read`).then(r => r.data),
   markAllNotificationsRead: () => client.put('/notifications/read-all').then(r => r.data),
+  testEmail: (to) => client.post('/notifications/test', { to }).then(r => r.data),
 
   // Health
   health: () => client.get('/health').then(r => r.data),
