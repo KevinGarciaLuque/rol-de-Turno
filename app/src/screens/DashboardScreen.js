@@ -8,6 +8,22 @@ import { COLORS } from '../constants/theme';
 
 const TODAY = new Date();
 
+// Ícono + color elegante según el tipo de área (se adapta a áreas nuevas por su nombre)
+function getAreaVisual(name = '') {
+  const n = name.toLowerCase();
+  if (n.includes('nefro'))                                return { icon: 'water',     color: '#1565C0' };
+  if (n.includes('hemo') || n.includes('diál') || n.includes('dial')) return { icon: 'git-network', color: '#00897B' };
+  if (n.includes('ucip') || n.includes('uci') || n.includes('intensiv')) return { icon: 'heart',  color: '#C62828' };
+  if (n.includes('hospital') || n.includes('intern'))     return { icon: 'bed',       color: '#6A1B9A' };
+  if (n.includes('consulta') || n.includes('externa'))    return { icon: 'clipboard', color: '#EF6C00' };
+  if (n.includes('emerg') || n.includes('urgenc'))        return { icon: 'medkit',    color: '#D84315' };
+  if (n.includes('cirug') || n.includes('quir'))          return { icon: 'cut',       color: '#283593' };
+  if (n.includes('neonat') || n.includes('pediatr'))      return { icon: 'happy',     color: '#AD1457' };
+  if (n.includes('labor'))                                return { icon: 'flask',     color: '#00838F' };
+  if (n.includes('farmac'))                               return { icon: 'bandage',   color: '#2E7D32' };
+  return { icon: 'medical', color: COLORS.primary };
+}
+
 export default function DashboardScreen({ navigation }) {
   const [departments, setDepartments] = useState([]);
   const [schedules, setSchedules]     = useState({});
@@ -56,60 +72,84 @@ export default function DashboardScreen({ navigation }) {
   );
 
   const todayDay = TODAY.getDate();
-  const todayMonth = TODAY.getMonth() + 1;
-  const todayYear = TODAY.getFullYear();
   const dowIndex = TODAY.getDay();
+
+  const totalStaff = Object.values(schedules).reduce((acc, s) => acc + (s?.employees?.length || 0), 0);
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Hero card */}
       <Surface style={styles.hero} elevation={4}>
         <View style={styles.heroTop}>
-          <Ionicons name="medical" size={28} color="#fff" />
+          <View style={styles.heroIconCircle}>
+            <Ionicons name="medical" size={26} color="#fff" />
+          </View>
           <View style={styles.heroTitle}>
             <Text style={styles.heroHospital}>Hospital María</Text>
             <Text style={styles.heroSubtitle}>Especialidades Pediátricas</Text>
           </View>
         </View>
         <View style={styles.heroDate}>
-          <Text style={styles.heroDay}>{DAYS_ES[dowIndex]}, {todayDay} de {MONTHS_ES[todayMonth - 1]} {todayYear}</Text>
+          <Ionicons name="calendar-outline" size={16} color="#fff" />
+          <Text style={styles.heroDay}>{DAYS_ES[dowIndex]}, {todayDay} de {MONTHS_ES[TODAY.getMonth()]} {TODAY.getFullYear()}</Text>
+        </View>
+        <View style={styles.heroStatsRow}>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatValue}>{departments.length}</Text>
+            <Text style={styles.heroStatLabel}>Áreas</Text>
+          </View>
+          <View style={styles.heroDivider} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatValue}>{totalStaff}</Text>
+            <Text style={styles.heroStatLabel}>Personal</Text>
+          </View>
         </View>
       </Surface>
 
-      {/* Department cards */}
+      {/* Áreas — cuadrícula de tarjetas */}
       <Text style={styles.sectionTitle}>Áreas</Text>
-      {departments.map(dept => {
-        const sched = schedules[dept.id];
-        const empCount = sched?.employees?.length || 0;
-        const todayCounts = sched?.dailyCounts?.[todayDay] || {};
-        return (
-          <Surface key={dept.id} style={styles.deptCard} elevation={2}>
-            <View style={styles.deptHeader}>
-              <View style={[styles.deptIcon, { backgroundColor: dept.id === 1 ? COLORS.primary : COLORS.secondary }]}>
-                <Ionicons name={dept.id === 1 ? 'water-outline' : 'pulse-outline'} size={22} color="#fff" />
-              </View>
-              <View style={styles.deptInfo}>
-                <Text style={styles.deptName}>{dept.name}</Text>
-                <Text style={styles.deptSupervisor}>{dept.supervisor}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.viewBtn}
-                onPress={() => navigation.navigate('Schedule', { departmentId: dept.id, departmentName: dept.name })}
-              >
-                <Text style={styles.viewBtnText}>Ver Rol</Text>
-                <Ionicons name="arrow-forward" size={14} color={COLORS.primary} />
-              </TouchableOpacity>
-            </View>
+      <View style={styles.areaGrid}>
+        {departments.map(dept => {
+          const { icon, color } = getAreaVisual(dept.name);
+          const sched = schedules[dept.id];
+          const empCount = sched?.employees?.length || 0;
+          const todayCounts = sched?.dailyCounts?.[todayDay] || {};
+          return (
+            <TouchableOpacity
+              key={dept.id}
+              style={styles.areaCardWrap}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Schedule', { departmentId: dept.id, departmentName: dept.name })}
+            >
+              <Surface style={styles.areaCard} elevation={2}>
+                <View style={styles.areaTopRow}>
+                  <View style={[styles.areaIcon, { backgroundColor: color + '18' }]}>
+                    <Ionicons name={icon} size={26} color={color} />
+                  </View>
+                  <View style={[styles.areaBadge, { backgroundColor: color + '14' }]}>
+                    <Ionicons name="people" size={13} color={color} />
+                    <Text style={[styles.areaBadgeText, { color }]}>{empCount}</Text>
+                  </View>
+                </View>
 
-            <View style={styles.deptStats}>
-              <StatCard label="Personal" value={empCount} icon="people-outline" color={COLORS.primary} />
-              <StatCard label="T. Mañana" value={todayCounts.A || 0} icon="sunny-outline" color="#2E7D32" />
-              <StatCard label="T. Tarde" value={todayCounts.B || 0} icon="partly-sunny-outline" color="#1565C0" />
-              <StatCard label="T. Noche" value={todayCounts.C || 0} icon="moon-outline" color="#6A1B9A" />
-            </View>
-          </Surface>
-        );
-      })}
+                <View style={styles.areaMid}>
+                  <Text style={styles.areaName} numberOfLines={2}>{dept.name}</Text>
+                  <Text style={styles.areaSup} numberOfLines={1}>{dept.supervisor || 'Sin supervisor'}</Text>
+                </View>
+
+                <View style={styles.areaFooter}>
+                  <View style={styles.miniShifts}>
+                    <MiniShift label="M" value={todayCounts.A || 0} color="#2E7D32" />
+                    <MiniShift label="T" value={todayCounts.B || 0} color="#1565C0" />
+                    <MiniShift label="N" value={todayCounts.C || 0} color="#6A1B9A" />
+                  </View>
+                  <Ionicons name="arrow-forward-circle" size={26} color={color} />
+                </View>
+              </Surface>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {/* Legend */}
       <Surface style={styles.legend} elevation={1}>
@@ -143,12 +183,11 @@ export default function DashboardScreen({ navigation }) {
   );
 }
 
-function StatCard({ label, value, icon, color }) {
+function MiniShift({ label, value, color }) {
   return (
-    <View style={styles.statCard}>
-      <Ionicons name={icon} size={18} color={color} />
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.miniShift}>
+      <Text style={[styles.miniShiftValue, { color }]}>{value}</Text>
+      <Text style={styles.miniShiftLabel}>{label}</Text>
     </View>
   );
 }
@@ -163,36 +202,45 @@ const styles = StyleSheet.create({
   retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
   hero: {
-    margin: 16, marginBottom: 8, borderRadius: 20,
+    margin: 16, marginBottom: 8, borderRadius: 22,
     backgroundColor: COLORS.header, padding: 20,
     overflow: 'hidden',
   },
-  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  heroIconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   heroTitle: {},
-  heroHospital: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  heroHospital: { fontSize: 21, fontWeight: '800', color: '#fff' },
   heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
-  heroDate: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: 10 },
-  heroDay: { fontSize: 16, color: '#fff', fontWeight: '600', textTransform: 'capitalize' },
+  heroDate: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, padding: 12 },
+  heroDay: { fontSize: 15, color: '#fff', fontWeight: '600', textTransform: 'capitalize' },
+  heroStatsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
+  heroStat: { flex: 1, alignItems: 'center' },
+  heroStatValue: { fontSize: 24, fontWeight: '800', color: '#fff' },
+  heroStatLabel: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+  heroDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.2)' },
 
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginHorizontal: 16, marginTop: 16, marginBottom: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginHorizontal: 16, marginTop: 16, marginBottom: 10 },
 
-  deptCard: { marginHorizontal: 16, marginBottom: 12, borderRadius: 16, overflow: 'hidden', backgroundColor: COLORS.surface },
-  deptHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  deptIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  deptInfo: { flex: 1 },
-  deptName: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-  deptSupervisor: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: COLORS.primaryContainer || '#E3F2FD' },
-  viewBtnText: { color: COLORS.primary, fontWeight: '600', fontSize: 13 },
-  deptStats: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: COLORS.border },
-  statCard: { flex: 1, alignItems: 'center', paddingVertical: 12, gap: 4 },
-  statValue: { fontSize: 20, fontWeight: '800' },
-  statLabel: { fontSize: 10, color: COLORS.textLight, fontWeight: '500' },
+  areaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16 },
+  areaCardWrap: { width: 158, flexGrow: 1, maxWidth: 230 },
+  areaCard: { flex: 1, minHeight: 168, borderRadius: 20, padding: 16, backgroundColor: COLORS.surface, justifyContent: 'space-between' },
+  areaTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  areaIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  areaBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 12 },
+  areaBadgeText: { fontSize: 13, fontWeight: '800' },
+  areaMid: { marginTop: 12 },
+  areaName: { fontSize: 16, fontWeight: '800', color: COLORS.text, lineHeight: 20 },
+  areaSup: { fontSize: 12, color: COLORS.textLight, marginTop: 3 },
+  areaFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 10 },
+  miniShifts: { flexDirection: 'row', gap: 10 },
+  miniShift: { alignItems: 'center' },
+  miniShiftValue: { fontSize: 14, fontWeight: '800' },
+  miniShiftLabel: { fontSize: 9, color: COLORS.textLight, fontWeight: '600' },
 
   legend: { margin: 16, borderRadius: 16, padding: 16, backgroundColor: COLORS.surface },
   legendTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 12 },
   legendGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  legendItem: { width: '48%', flexDirection: 'row', alignItems: 'center', gap: 10 },
+  legendItem: { width: '46%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   legendDot: { width: 36, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   legendCode: { fontSize: 10, fontWeight: '800', color: '#fff' },
   legendLabel: { fontSize: 12, fontWeight: '600', color: COLORS.text },
