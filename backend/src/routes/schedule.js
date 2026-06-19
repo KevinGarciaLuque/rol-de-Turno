@@ -154,6 +154,24 @@ router.get('/:scheduleMonthId/timeline', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// GET /api/schedule/:scheduleMonthId/signatures  → firmas (imagen) de quienes ya firmaron, la más reciente por nivel
+router.get('/:scheduleMonthId/signatures', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const rows = await db.all(
+      `SELECT a.level, a.position, a.user_name, a.created_at, u.signature
+       FROM schedule_approvals a
+       LEFT JOIN users u ON u.id = a.user_id
+       WHERE a.schedule_month_id = ? AND a.action = 'sign'
+       ORDER BY a.level ASC, a.created_at ASC`,
+      req.params.scheduleMonthId
+    );
+    const byPos = {};
+    for (const r of rows) byPos[r.position] = r; // la última firma de cada nivel gana
+    res.json(Object.values(byPos));
+  } catch (e) { next(e); }
+});
+
 /* ------------------------------- Edición ------------------------------- */
 
 // PUT /api/schedule/entry

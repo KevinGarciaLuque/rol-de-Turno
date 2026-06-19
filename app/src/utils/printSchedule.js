@@ -3,13 +3,22 @@ import {
   SHIFT_TYPES, getShift, MONTHS_ES, DAYS_ES, CATEGORY_LABELS,
 } from '../constants/shifts';
 
-// Firmas que aparecen al pie del rol oficial. Las dos primeras se toman del
-// departamento; las demás son cargos fijos del hospital.
-const FIXED_SIGNATURES = [
-  { name: 'Msc. Mercedes Emilia Sánchez', title: 'Coordinación General de Enfermería' },
-  { name: 'Msc. Melania Carolina Herrera', title: 'Sub coordinación General de Enfermería' },
-  { name: 'Dra. Karla Fernández',          title: 'Dirección de Gestión Clínica' },
-];
+// Orden y cargos de la cadena de firmas (debe coincidir con el backend)
+const SIGN_ORDER = ['jefe_area', 'jefe_servicio', 'coordinacion', 'subcoordinacion', 'direccion'];
+const SIGN_TITLES = {
+  jefe_area:       'Jefe de Área',
+  jefe_servicio:   'Jefe de Servicio',
+  coordinacion:    'Coordinación General de Enfermería',
+  subcoordinacion: 'Sub Coordinación General de Enfermería',
+  direccion:       'Dirección de Gestión Clínica',
+};
+
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (isNaN(d)) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => (
@@ -29,7 +38,7 @@ function esc(s) {
  * @param {object} p.employeeTotals { [empId]: { A,B,C,L } }
  * @param {string} p.puesto         etiqueta del Puesto de Trabajo
  */
-export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyCounts, employeeTotals, puesto }) {
+export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyCounts, employeeTotals, puesto, approvals }) {
   const daysInMonth = new Date(year, month, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -117,18 +126,28 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
       </table>`;
   }
 
-  // --- Firmas ---
-  const signatures = [
-    { name: dept?.supervisor || '', title: `Jefe de ${dept?.name || ''}` },
-    { name: dept?.area_chief || '', title: `Jefe de Servicio ${dept?.name || ''}` },
-    ...FIXED_SIGNATURES,
-  ];
-  const signHtml = signatures.map(s => `
-    <div class="sign">
-      <div class="signline"></div>
-      <div class="signname">${esc(s.name)}</div>
-      <div class="signtitle">${esc(s.title)}</div>
-    </div>`).join('');
+  // --- Firmas (de la cadena de aprobación; estampa la imagen de quien ya firmó) ---
+  const byPos = {};
+  (approvals || []).forEach(a => { byPos[a.position] = a; });
+  const titleFor = (pos) => {
+    if (pos === 'jefe_area')     return `Jefe de ${dept?.name || 'Área'}`;
+    if (pos === 'jefe_servicio') return `Jefe de Servicio${dept?.name ? ' ' + dept.name : ''}`;
+    return SIGN_TITLES[pos];
+  };
+  const signHtml = SIGN_ORDER.map(pos => {
+    const a = byPos[pos];
+    const stamp = a && a.signature && a.signature.startsWith('data:image')
+      ? `<img class="sigimg" src="${a.signature}">`
+      : (a ? `<div class="sigok">✓ Firmado</div>` : `<div class="sigimg"></div>`);
+    return `
+      <div class="sign">
+        ${stamp}
+        <div class="signline"></div>
+        <div class="signname">${esc(a?.user_name || '')}</div>
+        <div class="signtitle">${esc(titleFor(pos))}</div>
+        ${a ? `<div class="signdate">${esc(fmtDate(a.created_at))}</div>` : ''}
+      </div>`;
+  }).join('');
 
   // --- Leyenda ---
   const legend = [
@@ -199,11 +218,14 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
   .cnt.cC { background:#F3E5F5; color:#6A1B9A; }
 
   /* ===== Firmas ===== */
-  .signs { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; padding: 0 10px; }
+  .signs { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; padding: 0 10px; align-items: flex-end; }
   .sign { flex: 1; text-align: center; }
+  .sigimg { display: block; height: 38px; max-width: 90%; object-fit: contain; margin: 0 auto 1px; }
+  .sigok { font-size: 9px; font-weight: 700; color: #2E7D32; height: 38px; display: flex; align-items: flex-end; justify-content: center; }
   .signline { border-top: 1px solid #000; margin: 0 6px 3px; }
   .signname { font-size: 9px; font-weight: 700; }
   .signtitle { font-size: 8px; color: #333; }
+  .signdate { font-size: 7px; color: #555; margin-top: 1px; }
 
   /* ===== Leyenda ===== */
   .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; padding: 6px 10px; border-top: 1px solid #ccc; }

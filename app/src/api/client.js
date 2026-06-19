@@ -79,6 +79,7 @@ export const api = {
   rejectSchedule: (smId, target_level, note) => client.post(`/schedule/${smId}/reject`, { target_level, note }).then(r => r.data),
   reopenSchedule: (smId) => client.post(`/schedule/${smId}/reopen`).then(r => r.data),
   getTimeline:    (smId) => client.get(`/schedule/${smId}/timeline`).then(r => r.data),
+  getScheduleSignatures: (smId) => client.get(`/schedule/${smId}/signatures`).then(r => r.data),
 
   // Notificaciones
   getNotifications: () => client.get('/notifications').then(r => r.data),

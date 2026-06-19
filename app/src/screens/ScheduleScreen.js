@@ -166,6 +166,9 @@ export default function ScheduleScreen({ route }) {
       const puesto = filter !== 'all'
         ? (CATEGORY_LABELS[filter] || filter)
         : undefined;
+      // Traer las firmas reales (con imagen) para estamparlas en el documento
+      let approvals = [];
+      if (smId) { try { approvals = await api.getScheduleSignatures(smId); } catch (_) {} }
       const res = printSchedule({
         dept,
         year, month,
@@ -174,6 +177,7 @@ export default function ScheduleScreen({ route }) {
         dailyCounts,
         employeeTotals,
         puesto,
+        approvals,
       });
       if (!res.ok && res.reason === 'popup_blocked') {
         setSnack('Permite las ventanas emergentes para imprimir');
