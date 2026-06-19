@@ -60,6 +60,7 @@ export default function ScheduleScreen({ route }) {
   const [rejectNote, setRejectNote]     = useState('');
   const [timelineVisible, setTimelineVisible] = useState(false);
   const [staffVisible, setStaffVisible] = useState(false);
+  const [printVisible, setPrintVisible] = useState(false);
 
   const today = new Date();
   const [year, setYear]   = useState(2026);
@@ -156,7 +157,8 @@ export default function ScheduleScreen({ route }) {
     catch (e) { setSnack(e.response?.data?.error || 'No se pudo reabrir'); }
   };
 
-  const handlePrint = async () => {
+  const handlePrint = async (paperSize = 'oficio') => {
+    setPrintVisible(false);
     if (!data) return;
     try {
       let dept = data.department;
@@ -179,6 +181,7 @@ export default function ScheduleScreen({ route }) {
         employeeTotals,
         puesto,
         approvals,
+        paperSize,
       });
       if (!res.ok && res.reason === 'popup_blocked') {
         setSnack('Permite las ventanas emergentes para imprimir');
@@ -242,7 +245,7 @@ export default function ScheduleScreen({ route }) {
           <TouchableOpacity onPress={() => setStaffVisible(true)} style={[styles.navBtn, styles.printBtn]}>
             <Ionicons name="people" size={20} color={COLORS.onPrimary || '#fff'} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handlePrint} style={[styles.navBtn, styles.printBtn]}>
+          <TouchableOpacity onPress={() => setPrintVisible(true)} style={[styles.navBtn, styles.printBtn]}>
             <Ionicons name="print" size={20} color={COLORS.onPrimary || '#fff'} />
           </TouchableOpacity>
         </View>
@@ -500,6 +503,18 @@ export default function ScheduleScreen({ route }) {
           <View style={styles.apprModalActions}>
             <Button mode="contained" onPress={() => setTimelineVisible(false)}>Cerrar</Button>
           </View>
+        </Modal>
+      </Portal>
+
+      {/* Opciones de impresión: tamaño de papel */}
+      <Portal>
+        <Modal visible={printVisible} onDismiss={() => setPrintVisible(false)} contentContainerStyle={styles.apprModal}>
+          <Text style={styles.apprModalTitle}>Imprimir rol (horizontal)</Text>
+          <Text style={{ color: COLORS.textLight, marginBottom: 14, fontSize: 13 }}>Elige el tamaño de papel:</Text>
+          <Button mode="contained" icon="file-document-outline" style={{ marginBottom: 10 }} onPress={() => handlePrint('oficio')}>Oficio (8.5 × 13")</Button>
+          <Button mode="outlined" icon="file-outline" style={{ marginBottom: 10 }} onPress={() => handlePrint('legal')}>Legal (8.5 × 14")</Button>
+          <Button mode="outlined" icon="file-outline" style={{ marginBottom: 6 }} onPress={() => handlePrint('carta')}>Carta (8.5 × 11")</Button>
+          <Button mode="text" onPress={() => setPrintVisible(false)} style={{ marginTop: 4 }}>Cancelar</Button>
         </Modal>
       </Portal>
 

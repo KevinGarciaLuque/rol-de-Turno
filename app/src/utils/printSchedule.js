@@ -38,7 +38,15 @@ function esc(s) {
  * @param {object} p.employeeTotals { [empId]: { A,B,C,L } }
  * @param {string} p.puesto         etiqueta del Puesto de Trabajo
  */
-export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyCounts, employeeTotals, puesto, approvals }) {
+// Tamaños de papel (horizontal). Oficio ≈ 8.5x13", Legal 8.5x14", Carta 8.5x11".
+const PAGE_SIZES = {
+  carta:  '279mm 216mm',
+  legal:  '356mm 216mm',
+  oficio: '330mm 216mm',
+};
+
+export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyCounts, employeeTotals, puesto, approvals, paperSize }) {
+  const pageSize = PAGE_SIZES[paperSize] || PAGE_SIZES.oficio;
   const daysInMonth = new Date(year, month, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -170,7 +178,7 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
 <html lang="es"><head><meta charset="utf-8">
 <title>Rol de Turno · ${esc(dept?.name)} · ${esc(MONTHS_ES[month - 1])} ${year}</title>
 <style>
-  @page { size: A4 landscape; margin: 8mm; }
+  @page { size: ${pageSize}; margin: 6mm; }
   * { box-sizing: border-box; }
   body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
 
@@ -198,12 +206,12 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
   .grid .corner { background: #BBDEFB; font-weight: 700; }
   .grid .num   { width: 16px; }
   .grid .clave { width: 38px; font-size: 7px; }
-  .grid .name  { width: 130px; text-align: left; padding-left: 3px; font-size: 8px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+  .grid .name  { width: 130px; text-align: left; padding-left: 3px; font-size: 8px; font-weight: 600; white-space: normal; word-break: break-word; line-height: 1.05; }
   .grid .cell  { font-weight: 700; }
   .grid .tot   { width: 16px; font-weight: 700; }
   .grid .tA { background:#E8F5E9; } .grid .tB { background:#E3F2FD; }
   .grid .tC { background:#F3E5F5; } .grid .tL { background:#FAFAFA; }
-  .grid .obs { width: 130px; text-align: left; padding-left: 3px; font-size: 7px; color: #B71C1C; white-space: nowrap; overflow: hidden; }
+  .grid .obs { width: 120px; text-align: left; padding-left: 3px; font-size: 7px; color: #B71C1C; white-space: normal; word-break: break-word; line-height: 1.05; }
   .grid .totals-head { background:#90CAF9; font-weight:800; }
   .grid .pago { color:#B71C1C; font-weight:700; font-size:8px; }
 
@@ -309,7 +317,7 @@ function derivePuesto(employees) {
  */
 export function printSchedule(params) {
   const puesto = params.puesto || derivePuesto(params.employees || []);
-  const html = buildScheduleHtml({ ...params, puesto });
+  const html = buildScheduleHtml({ ...params, puesto, paperSize: params.paperSize });
 
   if (Platform.OS === 'web') {
     const win = window.open('', '_blank');
