@@ -12,6 +12,7 @@ import { COLORS } from '../constants/theme';
 import ShiftCell from '../components/ShiftCell';
 import ShiftPicker from '../components/ShiftPicker';
 import AreaStaffManager from '../components/AreaStaffManager';
+import ApprovalProgress from '../components/ApprovalProgress';
 import { printSchedule } from '../utils/printSchedule';
 import { useAuth } from '../context/AuthContext';
 
@@ -266,34 +267,44 @@ export default function ScheduleScreen({ route }) {
         </View>
       </Surface>
 
-      {/* Barra de aprobación */}
+      {/* Barra de aprobación con stepper de progreso */}
       {approval && (
-        <View style={[styles.apprBar, approval.state === 'approved' && { backgroundColor: '#E8F5E9' }, approval.state === 'in_review' && { backgroundColor: '#FFF8E1' }]}>
-          <View style={styles.apprInfo}>
-            <Ionicons
-              name={approval.state === 'approved' ? 'lock-closed' : approval.state === 'in_review' ? 'time' : 'create-outline'}
-              size={18}
-              color={approval.state === 'approved' ? COLORS.success : approval.state === 'in_review' ? '#F57F17' : COLORS.textLight}
-            />
-            <Text style={styles.apprText} numberOfLines={2}>
-              {approval.state === 'approved'
-                ? 'Aprobado y bloqueado'
-                : `${approval.state === 'in_review' ? 'En revisión' : 'Borrador'} · pendiente: ${approval.current_label}`}
-            </Text>
+        <Surface style={styles.apprCard} elevation={1}>
+          <View style={styles.apprTop}>
+            <View style={styles.apprStatus}>
+              <View style={[styles.apprDot,
+                approval.state === 'approved' ? { backgroundColor: COLORS.success }
+                  : approval.state === 'in_review' ? { backgroundColor: COLORS.warning }
+                  : { backgroundColor: COLORS.textLight }]}>
+                <Ionicons
+                  name={approval.state === 'approved' ? 'lock-closed' : approval.state === 'in_review' ? 'time' : 'create-outline'}
+                  size={14} color="#fff"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.apprState}>
+                  {approval.state === 'approved' ? 'Aprobado' : approval.state === 'in_review' ? 'En revisión' : 'Borrador'}
+                </Text>
+                <Text style={styles.apprSub} numberOfLines={1}>
+                  {approval.state === 'approved' ? 'Documento bloqueado' : `Pendiente: ${approval.current_label}`}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.apprActions}>
+              <IconButton icon="timeline-clock-outline" size={20} onPress={() => setTimelineVisible(true)} style={{ margin: 0 }} />
+              {approval.can_reject && (
+                <Button compact mode="text" textColor={COLORS.danger} onPress={() => setRejectVisible(true)}>Rechazar</Button>
+              )}
+              {approval.can_sign && (
+                <Button compact mode="contained" icon="draw" onPress={doSign} loading={signing} disabled={signing}>Firmar</Button>
+              )}
+              {isAdmin && approval.state === 'approved' && (
+                <Button compact mode="outlined" icon="lock-open-variant" onPress={doReopen}>Reabrir</Button>
+              )}
+            </View>
           </View>
-          <View style={styles.apprActions}>
-            <IconButton icon="timeline-clock-outline" size={20} onPress={() => setTimelineVisible(true)} style={{ margin: 0 }} />
-            {approval.can_reject && (
-              <Button compact mode="text" textColor={COLORS.danger} onPress={() => setRejectVisible(true)}>Rechazar</Button>
-            )}
-            {approval.can_sign && (
-              <Button compact mode="contained" icon="draw" onPress={doSign} loading={signing} disabled={signing}>Firmar</Button>
-            )}
-            {isAdmin && approval.state === 'approved' && (
-              <Button compact mode="outlined" icon="lock-open-variant" onPress={doReopen}>Reabrir</Button>
-            )}
-          </View>
-        </View>
+          <ApprovalProgress approval={approval} />
+        </Surface>
       )}
 
       {/* Schedule Grid */}
@@ -596,9 +607,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center',
   },
 
-  apprBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#ECEFF1', borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 8, flexWrap: 'wrap' },
-  apprInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 160 },
-  apprText: { fontSize: 13, fontWeight: '600', color: COLORS.text, flex: 1 },
+  apprCard: { backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  apprTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
+  apprStatus: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 170 },
+  apprDot: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  apprState: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+  apprSub: { fontSize: 11, color: COLORS.textLight, marginTop: 1 },
   apprActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
   apprModal: { margin: 20, backgroundColor: COLORS.surface, borderRadius: 18, padding: 20 },
