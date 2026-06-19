@@ -35,17 +35,29 @@ router.get('/', async (req, res, next) => {
   try {
     const db = await getDb();
     const users = await db.all(
-      `SELECT id, username, full_name, role, email, approval_position, is_active, created_at FROM users ORDER BY role, full_name`
+      `SELECT id, username, full_name, role, email, approval_position, is_active, created_at,
+              (signature IS NOT NULL) AS has_signature
+       FROM users ORDER BY role, full_name`
     );
     for (const u of users) u.departments = await getUserDepartments(db, u.id);
     res.json(users);
   } catch (e) { next(e); }
 });
 
+// GET /api/users/:id/signature  → devuelve la firma (data URL) del usuario
+router.get('/:id/signature', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const row = await db.get('SELECT signature FROM users WHERE id = ?', req.params.id);
+    if (!row) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json({ signature: row.signature || null });
+  } catch (e) { next(e); }
+});
+
 // POST /api/users  { username, password, full_name, role, departments: [ids] }
 router.post('/', async (req, res, next) => {
   try {
-    const { username, password, full_name, role, departments, email, approval_position } = req.body;
+    const { username, password, full_name, role, departments, email, approval_position, signature } = req.body;
     if (!username || !password || !full_name || !role) {
       return res.status(400).json({ error: 'username, password, full_name y role son requeridos' });
     }
@@ -59,8 +71,8 @@ router.post('/', async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 10);
     const r = await db.run(
-      'INSERT INTO users (username, password_hash, full_name, role, email, approval_position) VALUES (?,?,?,?,?,?)',
-      [username, hash, full_name, role, email || null, normPosition(approval_position)]
+      'INSERT INTO users (username, password_hash, full_name, role, email, approval_position, signature) VALUES (?,?,?,?,?,?,?)',
+      [username, hash, full_name, role, email || null, normPosition(approval_position), signature || null]
     );
     // El admin ve todo, no necesita asignación de áreas
     if (role !== 'admin') await setUserDepartments(db, r.lastID, departments);
@@ -72,7 +84,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/users/:id  → editar datos, rol, áreas y (opcional) contraseña
 router.put('/:id', async (req, res, next) => {
   try {
-    const { full_name, role, departments, is_active, password, email, approval_position } = req.body;
+    const { full_name, role, departments, is_active, password, email, approval_position, signature } = req.body;
     if (role && !VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: `Rol inválido. Debe ser uno de: ${VALID_ROLES.join(', ')}` });
     }
@@ -90,6 +102,10 @@ router.put('/:id', async (req, res, next) => {
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, user.id]);
+    }
+    // La firma solo se toca si viene en la petición (undefined = no cambiar)
+    if (signature !== undefined) {
+      await db.run('UPDATE users SET signature = ? WHERE id = ?', [signature || null, user.id]);
     }
 
     await db.run(

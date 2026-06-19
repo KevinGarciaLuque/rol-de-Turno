@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { Surface, FAB, Modal, Portal, TextInput, Button, Chip, Switch, Snackbar, SegmentedButtons } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { COLORS } from '../constants/theme';
 import { ACCESS_ROLES, ACCESS_ROLE_LABELS, ACCESS_ROLE_DESC, ACCESS_ROLE_COLOR, APPROVAL_POSITIONS, APPROVAL_POSITION_LABELS } from '../constants/roles';
+import { pickSignature } from '../utils/pickSignature';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminScreen() {
@@ -35,7 +36,7 @@ export default function AdminScreen() {
 
 /* ----------------------------- USUARIOS ----------------------------- */
 
-const emptyUserForm = { username: '', full_name: '', role: 'lector', password: '', departments: [], is_active: 1, email: '', approval_position: '' };
+const emptyUserForm = { username: '', full_name: '', role: 'lector', password: '', departments: [], is_active: 1, email: '', approval_position: '', signature: null, signatureChanged: false, signatureName: '' };
 
 function UsersManager({ notify }) {
   const { user: me } = useAuth();
@@ -59,11 +60,23 @@ function UsersManager({ notify }) {
   useEffect(() => { load(); }, [load]);
 
   const openCreate = () => { setEditing(null); setForm(emptyUserForm); setModal(true); };
-  const openEdit = (u) => {
+  const openEdit = async (u) => {
     setEditing(u);
-    setForm({ username: u.username, full_name: u.full_name, role: u.role, password: '', departments: u.departments || [], is_active: u.is_active, email: u.email || '', approval_position: u.approval_position || '' });
+    setForm({ username: u.username, full_name: u.full_name, role: u.role, password: '', departments: u.departments || [], is_active: u.is_active, email: u.email || '', approval_position: u.approval_position || '', signature: null, signatureChanged: false, signatureName: '' });
     setModal(true);
+    // Cargar la firma existente para previsualizarla (no se reenvía salvo que se cambie)
+    if (u.has_signature) {
+      try { const { signature } = await api.getUserSignature(u.id); setForm(f => ({ ...f, signature })); } catch {}
+    }
   };
+
+  const onPickSignature = async () => {
+    try {
+      const r = await pickSignature();
+      if (r) setForm(f => ({ ...f, signature: r.dataUrl, signatureChanged: true, signatureName: r.name }));
+    } catch (e) { notify(e.message || 'No se pudo cargar el archivo'); }
+  };
+  const onRemoveSignature = () => setForm(f => ({ ...f, signature: '', signatureChanged: true, signatureName: '' }));
 
   const toggleDept = (id) => setForm(f => ({
     ...f,
@@ -80,6 +93,7 @@ function UsersManager({ notify }) {
       if (editing) {
         const payload = { full_name: form.full_name.trim(), role: form.role, departments: form.departments, is_active: form.is_active, email: form.email.trim(), approval_position: form.approval_position || null };
         if (form.password) payload.password = form.password;
+        if (form.signatureChanged) payload.signature = form.signature || ''; // '' = quitar
         await api.updateUser(editing.id, payload);
         notify('Usuario actualizado');
       } else {
@@ -87,6 +101,7 @@ function UsersManager({ notify }) {
           username: form.username.trim(), password: form.password,
           full_name: form.full_name.trim(), role: form.role, departments: form.departments,
           email: form.email.trim(), approval_position: form.approval_position || null,
+          signature: form.signature || null,
         });
         notify('Usuario creado');
       }
@@ -195,6 +210,27 @@ function UsersManager({ notify }) {
                 </Chip>
               ))}
             </View>
+
+            <Text style={styles.label}>Firma</Text>
+            <Text style={styles.help}>Imagen (PNG/JPG) o PDF. Se usará al firmar el rol.</Text>
+            {form.signature ? (
+              <View style={styles.sigBox}>
+                {form.signature.startsWith('data:image') ? (
+                  <Image source={{ uri: form.signature }} style={styles.sigPreview} resizeMode="contain" />
+                ) : (
+                  <View style={styles.sigPdf}>
+                    <Ionicons name="document-text" size={28} color={COLORS.danger} />
+                    <Text style={styles.sigPdfText}>{form.signatureName || 'Documento PDF'}</Text>
+                  </View>
+                )}
+                <View style={styles.sigActions}>
+                  <Button mode="text" compact icon="swap-horizontal" onPress={onPickSignature}>Reemplazar</Button>
+                  <Button mode="text" compact textColor={COLORS.danger} icon="delete-outline" onPress={onRemoveSignature}>Quitar</Button>
+                </View>
+              </View>
+            ) : (
+              <Button mode="outlined" icon="upload" onPress={onPickSignature} style={{ marginBottom: 6 }}>Subir firma (imagen o PDF)</Button>
+            )}
 
             {editing && (
               <View style={styles.switchRow}>
@@ -348,6 +384,12 @@ const styles = StyleSheet.create({
 
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
   switchLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+
+  sigBox: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 10, marginBottom: 6, backgroundColor: '#FAFAFA' },
+  sigPreview: { width: '100%', height: 90, backgroundColor: '#fff', borderRadius: 8 },
+  sigPdf: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  sigPdfText: { fontSize: 13, color: COLORS.text, flex: 1 },
+  sigActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
 
   modalActions: { flexDirection: 'row', alignItems: 'center', marginTop: 18, gap: 4 },
 });

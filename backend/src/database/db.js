@@ -151,6 +151,7 @@ const TABLES = [
 const COLUMNS = [
   { table: 'users',           column: 'approval_position', def: "VARCHAR(30) NULL" },
   { table: 'users',           column: 'email',             def: "VARCHAR(255) NULL" },
+  { table: 'users',           column: 'signature',         def: "LONGTEXT NULL" },        // firma (data URL: imagen o PDF)
   { table: 'schedule_months', column: 'approval_state',    def: "VARCHAR(20) NOT NULL DEFAULT 'draft'" },
   { table: 'schedule_months', column: 'current_level',     def: "INT NOT NULL DEFAULT 1" },
 ];

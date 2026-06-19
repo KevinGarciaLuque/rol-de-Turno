@@ -52,6 +52,7 @@ export const api = {
   createUser: (data) => client.post('/users', data).then(r => r.data),
   updateUser: (id, data) => client.put(`/users/${id}`, data).then(r => r.data),
   deleteUser: (id) => client.delete(`/users/${id}`).then(r => r.data),
+  getUserSignature: (id) => client.get(`/users/${id}/signature`).then(r => r.data),
 
   // Departments
   getDepartments: () => client.get('/departments').then(r => r.data),
