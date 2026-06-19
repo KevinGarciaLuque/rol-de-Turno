@@ -20,6 +20,34 @@ const CELL_H = 28;
 const NAME_W = 160;
 const ROW_H  = 36;
 
+const WORK_CODES = ['A','B','C','TC','FS1','FS2','F11','F12','F141','F142','FJ1','FJ2','FV1','FV2'];
+
+// Recalcula los totales (conteo diario y totales por empleada) en la app,
+// igual que lo hace el servidor, para reflejar los cambios al instante.
+function computeAggregates(employees, matrix, daysInMonth) {
+  const dailyCounts = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    dailyCounts[d] = { A: 0, B: 0, C: 0, L: 0, other: 0 };
+    employees.forEach(emp => {
+      const code = matrix[emp.id]?.[d] || 'L';
+      if (['A','B','C','L'].includes(code)) dailyCounts[d][code]++;
+      else dailyCounts[d].other++;
+    });
+  }
+  const employeeTotals = {};
+  employees.forEach(emp => {
+    const t = { A:0, B:0, C:0, L:0, DE:0, VAC:0, special:0 };
+    for (let d = 1; d <= daysInMonth; d++) {
+      const code = matrix[emp.id]?.[d] || 'L';
+      if (t[code] !== undefined) t[code]++;
+      else if (WORK_CODES.includes(code)) t.special++;
+      else if (code === 'VAC') t.VAC++;
+    }
+    employeeTotals[emp.id] = t;
+  });
+  return { dailyCounts, employeeTotals };
+}
+
 export default function ScheduleScreen({ route }) {
   const { departmentId = 1, departmentName = 'Nefrología' } = route?.params || {};
   const { canEdit, isAdmin } = useAuth();
@@ -84,9 +112,10 @@ export default function ScheduleScreen({ route }) {
       });
       setData(prev => {
         const newMatrix = { ...prev.matrix };
-        if (!newMatrix[editCell.empId]) newMatrix[editCell.empId] = {};
-        newMatrix[editCell.empId] = { ...newMatrix[editCell.empId], [editCell.day]: code };
-        return { ...prev, matrix: newMatrix };
+        newMatrix[editCell.empId] = { ...(newMatrix[editCell.empId] || {}), [editCell.day]: code };
+        const dim = new Date(year, month, 0).getDate();
+        const { dailyCounts, employeeTotals } = computeAggregates(prev.employees || [], newMatrix, dim);
+        return { ...prev, matrix: newMatrix, dailyCounts, employeeTotals };
       });
       setSnack('Turno actualizado');
     } catch (e) {
