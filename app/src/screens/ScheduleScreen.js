@@ -11,6 +11,7 @@ import { APPROVAL_POSITION_LABELS } from '../constants/roles';
 import { COLORS } from '../constants/theme';
 import ShiftCell from '../components/ShiftCell';
 import ShiftPicker from '../components/ShiftPicker';
+import AreaStaffManager from '../components/AreaStaffManager';
 import { printSchedule } from '../utils/printSchedule';
 import { useAuth } from '../context/AuthContext';
 
@@ -29,6 +30,7 @@ export default function ScheduleScreen({ route }) {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNote, setRejectNote]     = useState('');
   const [timelineVisible, setTimelineVisible] = useState(false);
+  const [staffVisible, setStaffVisible] = useState(false);
 
   const today = new Date();
   const [year, setYear]   = useState(2026);
@@ -202,6 +204,9 @@ export default function ScheduleScreen({ route }) {
           </View>
           <TouchableOpacity onPress={() => changeMonth(1)} style={styles.navBtn}>
             <Ionicons name="chevron-forward" size={22} color={COLORS.onPrimary || '#fff'} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setStaffVisible(true)} style={[styles.navBtn, styles.printBtn]}>
+            <Ionicons name="people" size={20} color={COLORS.onPrimary || '#fff'} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handlePrint} style={[styles.navBtn, styles.printBtn]}>
             <Ionicons name="print" size={20} color={COLORS.onPrimary || '#fff'} />
@@ -453,6 +458,16 @@ export default function ScheduleScreen({ route }) {
           </View>
         </Modal>
       </Portal>
+
+      {/* Personal del área (gestión en contexto) */}
+      <AreaStaffManager
+        visible={staffVisible}
+        onDismiss={() => setStaffVisible(false)}
+        departmentId={departmentId}
+        departmentName={departmentName}
+        canEdit={canEdit}
+        onChanged={load}
+      />
 
       <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={2000}>{snack}</Snackbar>
 

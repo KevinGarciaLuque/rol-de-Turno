@@ -139,7 +139,7 @@ export default function EmployeesScreen() {
       <View style={styles.filterRow}>
         <Chip selected={filterDept === 'all'} onPress={() => setFilterDept('all')} compact style={styles.chip}>Todos los Depts.</Chip>
         {departments.map(d => (
-          <Chip key={d.id} selected={String(filterDept) === String(d.id)} onPress={() => setFilterDept(d.id)} compact style={styles.chip}>{d.short_name}</Chip>
+          <Chip key={d.id} selected={String(filterDept) === String(d.id)} onPress={() => setFilterDept(d.id)} compact style={styles.chip}>{d.short_name || d.name}</Chip>
         ))}
         <Chip selected={filterCat === 'all'} onPress={() => setFilterCat('all')} compact style={styles.chip}>Todas Cat.</Chip>
         {categories.map(cat => (
