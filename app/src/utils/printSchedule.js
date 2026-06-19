@@ -257,7 +257,7 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
   <div class="head">
     <div class="logo">LOGO<br>HOSPITAL MARÍA</div>
     <div class="headcenter">
-      <div class="title">ROLES DE TURNO</div>
+      <div class="title">ROL DE TURNOS</div>
       <div class="subtitle">HOSPITAL MARÍA ESPECIALIDADES PEDIÁTRICAS</div>
       <div class="meta">
         <b>Área:</b><span class="v">${esc((dept?.name || '').toUpperCase())}</span>
