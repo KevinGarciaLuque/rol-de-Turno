@@ -50,6 +50,10 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
   const daysInMonth = new Date(year, month, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
+  // Anchos de columna fijos (mismos para las dos tablas, para que alineen)
+  const col = (w) => `<col style="width:${w}">`;
+  const colgroupHtml = `<colgroup>${col('16px')}${col('40px')}${col('200px')}${days.map(() => col('16px')).join('')}${col('16px')}${col('16px')}${col('16px')}${col('16px')}${col('110px')}</colgroup>`;
+
   const isWeekend = (d) => {
     const dow = new Date(year, month - 1, d).getDay();
     return dow === 0 || dow === 6;
@@ -129,6 +133,7 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
     const rows = social.map(e => empRow(e, ++sn)).join('');
     socialBlock = `
       <table class="grid">
+        ${colgroupHtml}
         <tr class="band sub"><td colspan="${3 + daysInMonth + 5}">LICENCIADAS(OS) EN SERVICIO SOCIAL</td></tr>
         ${rows}
       </table>`;
@@ -267,6 +272,7 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
   </div>
 
   <table class="grid">
+    ${colgroupHtml}
     <tr>
       <th class="corner" rowspan="2">No.</th>
       <th class="corner" rowspan="2">Clave</th>
