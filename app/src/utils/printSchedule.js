@@ -206,7 +206,8 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
   .grid .corner { background: #BBDEFB; font-weight: 700; }
   .grid .num   { width: 16px; }
   .grid .clave { width: 38px; font-size: 7px; }
-  .grid .name  { width: 130px; text-align: left; padding-left: 3px; font-size: 8px; font-weight: 600; white-space: normal; word-break: break-word; line-height: 1.05; }
+  .grid .namehead { width: 200px; }
+  .grid .name  { width: 200px; text-align: left; padding-left: 4px; font-size: 9px; font-weight: 600; white-space: normal; word-break: break-word; line-height: 1.1; }
   .grid .cell  { font-weight: 700; }
   .grid .tot   { width: 16px; font-weight: 700; }
   .grid .tA { background:#E8F5E9; } .grid .tB { background:#E3F2FD; }
@@ -269,7 +270,7 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
     <tr>
       <th class="corner" rowspan="2">No.</th>
       <th class="corner" rowspan="2">Clave</th>
-      <th class="corner" rowspan="2">Nombre del empleado</th>
+      <th class="corner namehead" rowspan="2">Nombre del empleado</th>
       <th class="corner" colspan="${daysInMonth}">Día</th>
       <th class="totals-head" colspan="4">TOTALES</th>
       <th class="corner" rowspan="2">OBSERVACIONES</th>
