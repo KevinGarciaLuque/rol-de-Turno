@@ -9,6 +9,7 @@ const { getDb } = require('./src/database/db');
 const { seed, seedUsers } = require('./src/database/seed');
 const authRouter        = require('./src/routes/auth');
 const usersRouter       = require('./src/routes/users');
+const notificationsRouter = require('./src/routes/notifications');
 const departmentsRouter = require('./src/routes/departments');
 const employeesRouter   = require('./src/routes/employees');
 const scheduleRouter    = require('./src/routes/schedule');
@@ -27,6 +28,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 
 app.use('/api/auth',        authRouter);
 app.use('/api/users',       usersRouter);
+app.use('/api/notifications', notificationsRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/employees',   employeesRouter);
 app.use('/api/schedule',    scheduleRouter);

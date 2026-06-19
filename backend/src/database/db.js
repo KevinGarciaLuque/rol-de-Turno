@@ -117,7 +117,55 @@ const TABLES = [
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE
   )`,
+
+  // Bitácora de firmas/rechazos del flujo de aprobación (alimenta la línea de tiempo)
+  `CREATE TABLE IF NOT EXISTS schedule_approvals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    schedule_month_id INT NOT NULL,
+    level INT NOT NULL,
+    position VARCHAR(30) NOT NULL,
+    user_id INT,
+    user_name VARCHAR(255),
+    action VARCHAR(20) NOT NULL,            -- 'sign' | 'reject'
+    target_level INT,                        -- a qué nivel se devolvió (en rechazos)
+    note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (schedule_month_id) REFERENCES schedule_months(id)
+  )`,
+
+  // Notificaciones in-app (campanita)
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    schedule_month_id INT,
+    type VARCHAR(30),
+    title VARCHAR(255),
+    body TEXT,
+    is_read TINYINT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`,
 ];
+
+// Columnas que se agregan a tablas existentes (MySQL 8 no soporta ADD COLUMN IF NOT EXISTS)
+const COLUMNS = [
+  { table: 'users',           column: 'approval_position', def: "VARCHAR(30) NULL" },
+  { table: 'users',           column: 'email',             def: "VARCHAR(255) NULL" },
+  { table: 'schedule_months', column: 'approval_state',    def: "VARCHAR(20) NOT NULL DEFAULT 'draft'" },
+  { table: 'schedule_months', column: 'current_level',     def: "INT NOT NULL DEFAULT 1" },
+];
+
+async function ensureColumns(pool) {
+  for (const c of COLUMNS) {
+    const [rows] = await pool.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_schema=? AND table_name=? AND column_name=?`,
+      [DB_NAME, c.table, c.column]
+    );
+    if (rows.length === 0) {
+      await pool.query(`ALTER TABLE \`${c.table}\` ADD COLUMN \`${c.column}\` ${c.def}`);
+    }
+  }
+}
 
 // Normaliza los parámetros: acepta un valor suelto, un array, o nada (igual que el wrapper de sqlite)
 function norm(params) {
@@ -158,8 +206,9 @@ async function getDb() {
   // 2) Pool ya apuntando a la base
   _pool = mysql.createPool({ ...CFG, database: DB_NAME, waitForConnections: true, connectionLimit: 10 });
 
-  // 3) Crear las tablas
+  // 3) Crear las tablas y aplicar migraciones de columnas
   for (const stmt of TABLES) await _pool.query(stmt);
+  await ensureColumns(_pool);
 
   _db = makeAdapter(_pool);
   return _db;

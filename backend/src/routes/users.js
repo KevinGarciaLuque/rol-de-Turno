@@ -3,8 +3,14 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const { getDb } = require('../database/db');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { POSITIONS } = require('../config/approval');
 
 const VALID_ROLES = ['admin', 'supervisor', 'jefe', 'lector'];
+
+// Normaliza la posición de aprobación: '' o inválida → null
+function normPosition(pos) {
+  return POSITIONS.includes(pos) ? pos : null;
+}
 
 // Reemplaza las áreas asignadas a un usuario
 async function setUserDepartments(db, userId, departmentIds) {
@@ -29,7 +35,7 @@ router.get('/', async (req, res, next) => {
   try {
     const db = await getDb();
     const users = await db.all(
-      `SELECT id, username, full_name, role, is_active, created_at FROM users ORDER BY role, full_name`
+      `SELECT id, username, full_name, role, email, approval_position, is_active, created_at FROM users ORDER BY role, full_name`
     );
     for (const u of users) u.departments = await getUserDepartments(db, u.id);
     res.json(users);
@@ -39,7 +45,7 @@ router.get('/', async (req, res, next) => {
 // POST /api/users  { username, password, full_name, role, departments: [ids] }
 router.post('/', async (req, res, next) => {
   try {
-    const { username, password, full_name, role, departments } = req.body;
+    const { username, password, full_name, role, departments, email, approval_position } = req.body;
     if (!username || !password || !full_name || !role) {
       return res.status(400).json({ error: 'username, password, full_name y role son requeridos' });
     }
@@ -53,8 +59,8 @@ router.post('/', async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 10);
     const r = await db.run(
-      'INSERT INTO users (username, password_hash, full_name, role) VALUES (?,?,?,?)',
-      [username, hash, full_name, role]
+      'INSERT INTO users (username, password_hash, full_name, role, email, approval_position) VALUES (?,?,?,?,?,?)',
+      [username, hash, full_name, role, email || null, normPosition(approval_position)]
     );
     // El admin ve todo, no necesita asignación de áreas
     if (role !== 'admin') await setUserDepartments(db, r.lastID, departments);
@@ -66,7 +72,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/users/:id  → editar datos, rol, áreas y (opcional) contraseña
 router.put('/:id', async (req, res, next) => {
   try {
-    const { full_name, role, departments, is_active, password } = req.body;
+    const { full_name, role, departments, is_active, password, email, approval_position } = req.body;
     if (role && !VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: `Rol inválido. Debe ser uno de: ${VALID_ROLES.join(', ')}` });
     }
@@ -78,6 +84,8 @@ router.put('/:id', async (req, res, next) => {
     const newRole = role || user.role;
     const newName = full_name ?? user.full_name;
     const newActive = is_active ?? user.is_active;
+    const newEmail = email !== undefined ? (email || null) : user.email;
+    const newPosition = approval_position !== undefined ? normPosition(approval_position) : user.approval_position;
 
     if (password) {
       const hash = await bcrypt.hash(password, 10);
@@ -85,8 +93,8 @@ router.put('/:id', async (req, res, next) => {
     }
 
     await db.run(
-      'UPDATE users SET full_name = ?, role = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [newName, newRole, newActive, user.id]
+      'UPDATE users SET full_name = ?, role = ?, is_active = ?, email = ?, approval_position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newName, newRole, newActive, newEmail, newPosition, user.id]
     );
 
     if (newRole === 'admin') await db.run('DELETE FROM user_departments WHERE user_id = ?', user.id);
