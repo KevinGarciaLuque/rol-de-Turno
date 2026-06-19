@@ -12,6 +12,7 @@ import EmployeesScreen  from '../screens/EmployeesScreen';
 import ReportsScreen    from '../screens/ReportsScreen';
 import LoginScreen      from '../screens/LoginScreen';
 import AdminScreen      from '../screens/AdminScreen';
+import NotificationBell from '../components/NotificationBell';
 
 const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -20,10 +21,13 @@ const Stack = createStackNavigator();
 function HeaderLogout() {
   const { user, logout } = useAuth();
   return (
-    <TouchableOpacity onPress={logout} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12 }}>
-      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{user?.full_name}</Text>
-      <Ionicons name="log-out-outline" size={22} color="#fff" />
-    </TouchableOpacity>
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 8 }}>
+      <NotificationBell />
+      <TouchableOpacity onPress={logout} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8 }}>
+        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{user?.full_name}</Text>
+        <Ionicons name="log-out-outline" size={22} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
 }
 

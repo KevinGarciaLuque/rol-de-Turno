@@ -3,10 +3,11 @@ import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
   ActivityIndicator, RefreshControl, Platform, Alert,
 } from 'react-native';
-import { Surface, Chip, IconButton, Snackbar } from 'react-native-paper';
+import { Surface, Chip, IconButton, Snackbar, Button, Modal, Portal, TextInput } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { getShift, MONTHS_ES, DAYS_ES, CATEGORY_COLOR, CATEGORY_LABELS } from '../constants/shifts';
+import { APPROVAL_POSITION_LABELS } from '../constants/roles';
 import { COLORS } from '../constants/theme';
 import ShiftCell from '../components/ShiftCell';
 import ShiftPicker from '../components/ShiftPicker';
@@ -20,7 +21,14 @@ const ROW_H  = 36;
 
 export default function ScheduleScreen({ route }) {
   const { departmentId = 1, departmentName = 'Nefrología' } = route?.params || {};
-  const { canEdit } = useAuth();
+  const { canEdit, isAdmin } = useAuth();
+
+  // Flujo de aprobación
+  const [signing, setSigning]           = useState(false);
+  const [rejectVisible, setRejectVisible] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectNote, setRejectNote]     = useState('');
+  const [timelineVisible, setTimelineVisible] = useState(false);
 
   const today = new Date();
   const [year, setYear]   = useState(2026);
@@ -85,6 +93,35 @@ export default function ScheduleScreen({ route }) {
       setSaving(false);
       setEditCell(null);
     }
+  };
+
+  const smId = data?.scheduleMonth?.id;
+  const approval = data?.approval;
+
+  const doSign = async () => {
+    if (!smId) return;
+    setSigning(true);
+    try { await api.signSchedule(smId); setSnack('Firmado correctamente'); await load(); }
+    catch (e) { setSnack(e.response?.data?.error || 'No se pudo firmar'); }
+    finally { setSigning(false); }
+  };
+
+  const doReject = async () => {
+    if (!rejectTarget) { setSnack('Elige a quién devolver el rol'); return; }
+    if (!rejectNote.trim()) { setSnack('Escribe el motivo del rechazo'); return; }
+    setSigning(true);
+    try {
+      await api.rejectSchedule(smId, rejectTarget, rejectNote.trim());
+      setRejectVisible(false); setRejectNote(''); setRejectTarget(null);
+      setSnack('Rol devuelto para revisión');
+      await load();
+    } catch (e) { setSnack(e.response?.data?.error || 'No se pudo rechazar'); }
+    finally { setSigning(false); }
+  };
+
+  const doReopen = async () => {
+    try { await api.reopenSchedule(smId); setSnack('Rol reabierto para edición'); await load(); }
+    catch (e) { setSnack(e.response?.data?.error || 'No se pudo reabrir'); }
   };
 
   const handlePrint = async () => {
@@ -190,6 +227,36 @@ export default function ScheduleScreen({ route }) {
           <StatBadge label="Turno C" value={Object.values(dailyCounts)[0]?.C || 0} color="#6A1B9A" />
         </View>
       </Surface>
+
+      {/* Barra de aprobación */}
+      {approval && (
+        <View style={[styles.apprBar, approval.state === 'approved' && { backgroundColor: '#E8F5E9' }, approval.state === 'in_review' && { backgroundColor: '#FFF8E1' }]}>
+          <View style={styles.apprInfo}>
+            <Ionicons
+              name={approval.state === 'approved' ? 'lock-closed' : approval.state === 'in_review' ? 'time' : 'create-outline'}
+              size={18}
+              color={approval.state === 'approved' ? COLORS.success : approval.state === 'in_review' ? '#F57F17' : COLORS.textLight}
+            />
+            <Text style={styles.apprText} numberOfLines={2}>
+              {approval.state === 'approved'
+                ? 'Aprobado y bloqueado'
+                : `${approval.state === 'in_review' ? 'En revisión' : 'Borrador'} · pendiente: ${approval.current_label}`}
+            </Text>
+          </View>
+          <View style={styles.apprActions}>
+            <IconButton icon="timeline-clock-outline" size={20} onPress={() => setTimelineVisible(true)} style={{ margin: 0 }} />
+            {approval.can_reject && (
+              <Button compact mode="text" textColor={COLORS.danger} onPress={() => setRejectVisible(true)}>Rechazar</Button>
+            )}
+            {approval.can_sign && (
+              <Button compact mode="contained" icon="draw" onPress={doSign} loading={signing} disabled={signing}>Firmar</Button>
+            )}
+            {isAdmin && approval.state === 'approved' && (
+              <Button compact mode="outlined" icon="lock-open-variant" onPress={doReopen}>Reabrir</Button>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Schedule Grid */}
       <ScrollView
@@ -329,6 +396,64 @@ export default function ScheduleScreen({ route }) {
         onClose={() => setEditCell(null)}
       />
 
+      {/* Modal de rechazo */}
+      <Portal>
+        <Modal visible={rejectVisible} onDismiss={() => setRejectVisible(false)} contentContainerStyle={styles.apprModal}>
+          <Text style={styles.apprModalTitle}>Rechazar y devolver</Text>
+          <Text style={styles.apprModalLabel}>¿A qué nivel lo devuelves?</Text>
+          <View style={styles.apprChipWrap}>
+            {(approval?.chain || []).filter(c => c.level < (approval?.current_level || 99)).map(c => (
+              <Chip key={c.level} selected={rejectTarget === c.level} onPress={() => setRejectTarget(c.level)} showSelectedCheck style={{ marginBottom: 6 }}>
+                {c.label}
+              </Chip>
+            ))}
+          </View>
+          <TextInput label="Motivo del rechazo" value={rejectNote} onChangeText={setRejectNote} mode="outlined" multiline numberOfLines={3} style={{ marginTop: 8, backgroundColor: '#fff' }} />
+          <View style={styles.apprModalActions}>
+            <Button mode="text" onPress={() => setRejectVisible(false)}>Cancelar</Button>
+            <Button mode="contained" buttonColor={COLORS.danger} onPress={doReject} loading={signing} disabled={signing}>Devolver</Button>
+          </View>
+        </Modal>
+      </Portal>
+
+      {/* Modal de línea de tiempo */}
+      <Portal>
+        <Modal visible={timelineVisible} onDismiss={() => setTimelineVisible(false)} contentContainerStyle={styles.apprModal}>
+          <Text style={styles.apprModalTitle}>Línea de tiempo del rol</Text>
+          <ScrollView style={{ maxHeight: 380 }}>
+            {(approval?.timeline || []).length === 0 ? (
+              <Text style={{ color: COLORS.textLight, paddingVertical: 12 }}>Aún no hay movimientos. El proceso inicia cuando el Jefe de Área firma.</Text>
+            ) : (
+              (approval?.timeline || []).map((ev, i) => {
+                const isReject = ev.action === 'reject';
+                const isReopen = ev.action === 'reopen';
+                const color = isReject ? COLORS.danger : isReopen ? COLORS.warning : COLORS.success;
+                const icon = isReject ? 'close-circle' : isReopen ? 'lock-open-variant' : 'checkmark-circle';
+                const verb = isReject ? 'Rechazó y devolvió' : isReopen ? 'Reabrió' : 'Firmó';
+                return (
+                  <View key={ev.id} style={styles.tlRow}>
+                    <View style={styles.tlLeft}>
+                      <Ionicons name={icon === 'lock-open-variant' ? 'lock-open' : icon} size={20} color={color} />
+                      {i < (approval.timeline.length - 1) && <View style={styles.tlLine} />}
+                    </View>
+                    <View style={{ flex: 1, paddingBottom: 14 }}>
+                      <Text style={styles.tlName}>{ev.user_name}</Text>
+                      <Text style={styles.tlPos}>{APPROVAL_POSITION_LABELS[ev.position] || ev.position}</Text>
+                      <Text style={[styles.tlVerb, { color }]}>{verb}</Text>
+                      {!!ev.note && <Text style={styles.tlNote}>“{ev.note}”</Text>}
+                      <Text style={styles.tlDate}>{new Date(ev.created_at).toLocaleString()}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+          <View style={styles.apprModalActions}>
+            <Button mode="contained" onPress={() => setTimelineVisible(false)}>Cerrar</Button>
+          </View>
+        </Modal>
+      </Portal>
+
       <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={2000}>{snack}</Snackbar>
 
       {saving && (
@@ -422,4 +547,24 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center',
   },
+
+  apprBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#ECEFF1', borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 8, flexWrap: 'wrap' },
+  apprInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 160 },
+  apprText: { fontSize: 13, fontWeight: '600', color: COLORS.text, flex: 1 },
+  apprActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+
+  apprModal: { margin: 20, backgroundColor: COLORS.surface, borderRadius: 18, padding: 20 },
+  apprModalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text, marginBottom: 12 },
+  apprModalLabel: { fontSize: 13, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
+  apprChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  apprModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
+
+  tlRow: { flexDirection: 'row', gap: 12 },
+  tlLeft: { alignItems: 'center', width: 24 },
+  tlLine: { width: 2, flex: 1, backgroundColor: COLORS.border, marginTop: 2 },
+  tlName: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  tlPos: { fontSize: 12, color: COLORS.textLight },
+  tlVerb: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  tlNote: { fontSize: 12, color: COLORS.text, fontStyle: 'italic', marginTop: 4, backgroundColor: '#FFF3E0', padding: 8, borderRadius: 8 },
+  tlDate: { fontSize: 10, color: COLORS.textLight, marginTop: 4 },
 });

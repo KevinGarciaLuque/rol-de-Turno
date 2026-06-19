@@ -73,6 +73,17 @@ export const api = {
   getShiftTypes: () => client.get('/schedule/shift-types/all').then(r => r.data),
   getScheduleSummary: (deptId) => client.get(`/schedule/summary/${deptId}`).then(r => r.data),
 
+  // Aprobación (flujo de firmas)
+  signSchedule:   (smId) => client.post(`/schedule/${smId}/sign`).then(r => r.data),
+  rejectSchedule: (smId, target_level, note) => client.post(`/schedule/${smId}/reject`, { target_level, note }).then(r => r.data),
+  reopenSchedule: (smId) => client.post(`/schedule/${smId}/reopen`).then(r => r.data),
+  getTimeline:    (smId) => client.get(`/schedule/${smId}/timeline`).then(r => r.data),
+
+  // Notificaciones
+  getNotifications: () => client.get('/notifications').then(r => r.data),
+  markNotificationRead: (id) => client.put(`/notifications/${id}/read`).then(r => r.data),
+  markAllNotificationsRead: () => client.put('/notifications/read-all').then(r => r.data),
+
   // Health
   health: () => client.get('/health').then(r => r.data),
 };

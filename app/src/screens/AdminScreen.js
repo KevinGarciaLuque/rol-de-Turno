@@ -4,7 +4,7 @@ import { Surface, FAB, Modal, Portal, TextInput, Button, Chip, Switch, Snackbar,
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { COLORS } from '../constants/theme';
-import { ACCESS_ROLES, ACCESS_ROLE_LABELS, ACCESS_ROLE_DESC, ACCESS_ROLE_COLOR } from '../constants/roles';
+import { ACCESS_ROLES, ACCESS_ROLE_LABELS, ACCESS_ROLE_DESC, ACCESS_ROLE_COLOR, APPROVAL_POSITIONS, APPROVAL_POSITION_LABELS } from '../constants/roles';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminScreen() {
@@ -35,7 +35,7 @@ export default function AdminScreen() {
 
 /* ----------------------------- USUARIOS ----------------------------- */
 
-const emptyUserForm = { username: '', full_name: '', role: 'lector', password: '', departments: [], is_active: 1 };
+const emptyUserForm = { username: '', full_name: '', role: 'lector', password: '', departments: [], is_active: 1, email: '', approval_position: '' };
 
 function UsersManager({ notify }) {
   const { user: me } = useAuth();
@@ -61,7 +61,7 @@ function UsersManager({ notify }) {
   const openCreate = () => { setEditing(null); setForm(emptyUserForm); setModal(true); };
   const openEdit = (u) => {
     setEditing(u);
-    setForm({ username: u.username, full_name: u.full_name, role: u.role, password: '', departments: u.departments || [], is_active: u.is_active });
+    setForm({ username: u.username, full_name: u.full_name, role: u.role, password: '', departments: u.departments || [], is_active: u.is_active, email: u.email || '', approval_position: u.approval_position || '' });
     setModal(true);
   };
 
@@ -78,7 +78,7 @@ function UsersManager({ notify }) {
     setSaving(true);
     try {
       if (editing) {
-        const payload = { full_name: form.full_name.trim(), role: form.role, departments: form.departments, is_active: form.is_active };
+        const payload = { full_name: form.full_name.trim(), role: form.role, departments: form.departments, is_active: form.is_active, email: form.email.trim(), approval_position: form.approval_position || null };
         if (form.password) payload.password = form.password;
         await api.updateUser(editing.id, payload);
         notify('Usuario actualizado');
@@ -86,6 +86,7 @@ function UsersManager({ notify }) {
         await api.createUser({
           username: form.username.trim(), password: form.password,
           full_name: form.full_name.trim(), role: form.role, departments: form.departments,
+          email: form.email.trim(), approval_position: form.approval_position || null,
         });
         notify('Usuario creado');
       }
@@ -177,6 +178,23 @@ function UsersManager({ notify }) {
                 </View>
               </>
             )}
+
+            <TextInput
+              label="Correo (opcional, para avisos)" value={form.email}
+              onChangeText={v => setForm(f => ({ ...f, email: v }))}
+              mode="outlined" autoCapitalize="none" keyboardType="email-address" style={styles.input}
+            />
+
+            <Text style={styles.label}>Posición en el flujo de firmas</Text>
+            <Text style={styles.help}>Define en qué nivel firma el rol de turno (opcional).</Text>
+            <View style={styles.chipWrap}>
+              <Chip selected={!form.approval_position} onPress={() => setForm(f => ({ ...f, approval_position: '' }))} showSelectedCheck style={styles.deptChip}>Ninguna</Chip>
+              {APPROVAL_POSITIONS.map(p => (
+                <Chip key={p} selected={form.approval_position === p} onPress={() => setForm(f => ({ ...f, approval_position: p }))} showSelectedCheck style={styles.deptChip}>
+                  {APPROVAL_POSITION_LABELS[p]}
+                </Chip>
+              ))}
+            </View>
 
             {editing && (
               <View style={styles.switchRow}>
@@ -315,6 +333,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text, marginBottom: 14 },
   input: { marginBottom: 10, backgroundColor: '#fff' },
   label: { fontSize: 13, fontWeight: '700', color: COLORS.text, marginTop: 6, marginBottom: 8 },
+  help: { fontSize: 11, color: COLORS.textLight, marginTop: -4, marginBottom: 8 },
 
   roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
   roleOption: { padding: 10, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#fff', minHeight: 64 },

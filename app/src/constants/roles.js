@@ -21,3 +21,18 @@ export const ACCESS_ROLE_COLOR = {
   jefe:       '#1565C0',
   lector:     '#757575',
 };
+
+// Posiciones en la cadena de aprobación (firmas del rol de turno)
+export const APPROVAL_POSITIONS = ['jefe_area', 'jefe_servicio', 'coordinacion', 'subcoordinacion', 'direccion'];
+
+export const APPROVAL_POSITION_LABELS = {
+  jefe_area:       'Jefe de Área',
+  jefe_servicio:   'Jefe de Servicio',
+  coordinacion:    'Coordinación General de Enfermería',
+  subcoordinacion: 'Sub Coordinación General de Enfermería',
+  direccion:       'Dirección de Gestión Clínica',
+};
+
+export const APPROVAL_LEVEL_BY_POSITION = {
+  jefe_area: 1, jefe_servicio: 2, coordinacion: 3, subcoordinacion: 4, direccion: 5,
+};
