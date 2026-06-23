@@ -21,6 +21,26 @@ async function seedUsers() {
   console.log('   Cámbiala después del primer ingreso.\n');
 }
 
+// Defaults de turnos para instalaciones ya existentes (idempotente, no pisa lo editado).
+async function seedShiftHours() {
+  const db = await getDb();
+
+  // Horario por defecto de A/B/C (COALESCE conserva lo que el admin haya puesto)
+  const defaults = { A: ['07:00', '15:00'], B: ['15:00', '23:00'], C: ['23:00', '07:00'] };
+  for (const [code, [s, e]] of Object.entries(defaults)) {
+    await db.run(
+      `UPDATE shift_types SET start_time = COALESCE(start_time, ?), end_time = COALESCE(end_time, ?) WHERE code = ?`,
+      [s, e, code]
+    );
+  }
+
+  // Día de la Enfermera (se agrega si aún no existe)
+  await db.run(
+    `INSERT IGNORE INTO shift_types (code,label,description,color,text_color,is_work_shift,sort_order) VALUES (?,?,?,?,?,?,?)`,
+    ['DEN', 'Día Enf.', 'Día de la Enfermera', '#D81B60', '#FFFFFF', 0, 20]
+  );
+}
+
 function parseShift(val) {
   if (val === '' || val === null || val === undefined) return 'L';
   const s = String(val).trim();
@@ -50,9 +70,9 @@ async function seed() {
   console.log('Seeding database...');
 
   const shiftTypes = [
-    { code:'A',    label:'Turno A',           description:'Turno mañana (7am-3pm)',        color:'#2E7D32', text_color:'#FFFFFF', is_work:1, sort:1  },
-    { code:'B',    label:'Turno B',           description:'Turno tarde (3pm-11pm)',         color:'#1565C0', text_color:'#FFFFFF', is_work:1, sort:2  },
-    { code:'C',    label:'Turno C',           description:'Turno noche (11pm-7am)',         color:'#6A1B9A', text_color:'#FFFFFF', is_work:1, sort:3  },
+    { code:'A',    label:'Turno A',           description:'Turno de la mañana',            color:'#2E7D32', text_color:'#FFFFFF', is_work:1, sort:1  },
+    { code:'B',    label:'Turno B',           description:'Turno de la tarde',             color:'#1565C0', text_color:'#FFFFFF', is_work:1, sort:2  },
+    { code:'C',    label:'Turno C',           description:'Turno de la noche',             color:'#6A1B9A', text_color:'#FFFFFF', is_work:1, sort:3  },
     { code:'L',    label:'Libre',             description:'Día libre',                      color:'#757575', text_color:'#FFFFFF', is_work:0, sort:4  },
     { code:'DE',   label:'Desc. Extra',       description:'Descanso extra',                 color:'#E65100', text_color:'#FFFFFF', is_work:0, sort:5  },
     { code:'TC',   label:'T. Compensatorio',  description:'Turno compensatorio',            color:'#F57F17', text_color:'#000000', is_work:1, sort:6  },
@@ -69,6 +89,7 @@ async function seed() {
     { code:'VAC',  label:'Vacaciones',        description:'Día de vacaciones ordinarias',  color:'#0277BD', text_color:'#FFFFFF', is_work:0, sort:17 },
     { code:'DP',   label:'Desc. Profesional', description:'Descanso profesional',          color:'#4E342E', text_color:'#FFFFFF', is_work:0, sort:18 },
     { code:'INC',  label:'Incapacidad',       description:'Incapacidad médica',            color:'#B71C1C', text_color:'#FFFFFF', is_work:0, sort:19 },
+    { code:'DEN',  label:'Día Enf.',          description:'Día de la Enfermera',           color:'#D81B60', text_color:'#FFFFFF', is_work:0, sort:20 },
   ];
 
   for (const st of shiftTypes) {
@@ -186,4 +207,4 @@ async function seed() {
   console.log('Database seeded successfully!');
 }
 
-module.exports = { seed, seedUsers };
+module.exports = { seed, seedUsers, seedShiftHours };

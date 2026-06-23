@@ -6,7 +6,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 
 const { getDb } = require('./src/database/db');
-const { seed, seedUsers } = require('./src/database/seed');
+const { seed, seedUsers, seedShiftHours } = require('./src/database/seed');
 const authRouter        = require('./src/routes/auth');
 const usersRouter       = require('./src/routes/users');
 const notificationsRouter = require('./src/routes/notifications');
@@ -38,6 +38,7 @@ async function start() {
   await getDb();      // Initialize DB + create tables
   await seed();       // Seed initial data if empty
   await seedUsers();  // Ensure an admin user exists
+  await seedShiftHours(); // Asigna horarios por defecto a A/B/C si faltan
   app.listen(PORT, () => {
     console.log(`\n🏥  Rol de Turno API → http://localhost:${PORT}/api/health\n`);
   });

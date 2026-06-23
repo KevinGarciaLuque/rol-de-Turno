@@ -165,23 +165,23 @@ const styles = StyleSheet.create({
   pageWrap: { maxWidth: 1080, width: '100%', alignSelf: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  deptSelector: { flexDirection: 'row', alignItems: 'center', margin: 12, padding: 8, borderRadius: 14, backgroundColor: COLORS.surface, gap: 8 },
+  deptSelector: { flexDirection: 'row', alignItems: 'center', margin: 12, marginBottom: 8, padding: 6, borderRadius: 12, backgroundColor: COLORS.surface, gap: 8 },
   selectorLabel: { fontSize: 13, color: COLORS.textLight, marginRight: 4 },
-  deptTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: COLORS.bg },
+  deptTab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 10, backgroundColor: COLORS.bg },
   deptTabActive: { backgroundColor: COLORS.primary },
   deptTabText: { fontSize: 14, fontWeight: '600', color: COLORS.textLight },
   deptTabTextActive: { color: '#fff' },
 
-  periodLabel: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginHorizontal: 16, marginBottom: 12 },
+  periodLabel: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginHorizontal: 12, marginBottom: 8 },
 
-  summaryRow: { flexDirection: 'row', marginHorizontal: 12, gap: 12, marginBottom: 12 },
-  summaryCard: { flex: 1, padding: 16, borderRadius: 14, backgroundColor: COLORS.surface, alignItems: 'center', gap: 4, borderTopWidth: 3 },
-  summaryValue: { fontSize: 28, fontWeight: '800' },
+  summaryRow: { flexDirection: 'row', marginHorizontal: 12, gap: 10, marginBottom: 10 },
+  summaryCard: { flex: 1, padding: 12, borderRadius: 12, backgroundColor: COLORS.surface, alignItems: 'center', gap: 2, borderTopWidth: 3 },
+  summaryValue: { fontSize: 22, fontWeight: '800' },
   summaryLabel: { fontSize: 12, color: COLORS.textLight, textAlign: 'center' },
 
-  shiftsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 12, gap: 10, marginBottom: 12 },
-  shiftCard: { width: '31%', borderRadius: 12, padding: 12, alignItems: 'center' },
-  shiftValue: { fontSize: 22, fontWeight: '800' },
+  shiftsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 12, gap: 10, marginBottom: 10 },
+  shiftCard: { width: '31%', borderRadius: 12, padding: 10, alignItems: 'center' },
+  shiftValue: { fontSize: 19, fontWeight: '800' },
   shiftLabel: { fontSize: 12, fontWeight: '600', marginTop: 2 },
 
   alertBox: { marginHorizontal: 12, marginBottom: 12, padding: 16, borderRadius: 14, backgroundColor: '#FFF5F5', borderLeftWidth: 4 },

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
-const { authenticate, userCanAccessDepartment } = require('../middleware/auth');
+const { authenticate, userCanAccessDepartment, requireRole } = require('../middleware/auth');
 const { CHAIN, MAX_LEVEL, stepByLevel, labelForLevel } = require('../config/approval');
 const { notifyUsers } = require('../utils/notify');
 
@@ -71,6 +71,52 @@ router.get('/shift-types/all', async (req, res, next) => {
   try {
     const db = await getDb();
     res.json(await db.all(`SELECT * FROM shift_types ORDER BY sort_order`));
+  } catch (e) { next(e); }
+});
+
+// POST /api/schedule/shift-types  → crear un turno nuevo (solo admin)
+router.post('/shift-types', requireRole('admin'), async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const { code, label, description, color, text_color, is_work_shift, start_time, end_time } = req.body;
+    if (!code || !label || !color) return res.status(400).json({ error: 'Código, etiqueta y color son obligatorios' });
+
+    const normCode = String(code).trim().toUpperCase();
+    if (!/^[A-Z0-9]{1,16}$/.test(normCode)) return res.status(400).json({ error: 'El código debe tener 1 a 16 letras o números (sin espacios)' });
+
+    const exists = await db.get('SELECT code FROM shift_types WHERE code = ?', normCode);
+    if (exists) return res.status(409).json({ error: 'Ya existe un turno con ese código' });
+
+    const norm = (t) => (t && /^\d{1,2}:\d{2}$/.test(String(t).trim()) ? String(t).trim().padStart(5, '0') : null);
+    const max = await db.get('SELECT MAX(sort_order) AS m FROM shift_types');
+    const sort = (max?.m || 0) + 1;
+
+    await db.run(
+      `INSERT INTO shift_types (code,label,description,color,text_color,is_work_shift,start_time,end_time,sort_order) VALUES (?,?,?,?,?,?,?,?,?)`,
+      [normCode, label, description || null, color, text_color || '#FFFFFF', is_work_shift ? 1 : 0, norm(start_time), norm(end_time), sort]
+    );
+    res.status(201).json({ code: normCode });
+  } catch (e) { next(e); }
+});
+
+// PUT /api/schedule/shift-types/:code  → editar un turno (solo admin)
+router.put('/shift-types/:code', requireRole('admin'), async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const existing = await db.get('SELECT code FROM shift_types WHERE code = ?', req.params.code);
+    if (!existing) return res.status(404).json({ error: 'Turno no encontrado' });
+
+    const { label, description, color, text_color, is_work_shift, start_time, end_time } = req.body;
+    if (!label || !color) return res.status(400).json({ error: 'La etiqueta y el color son obligatorios' });
+
+    // Normaliza "HH:MM" o lo deja en NULL si viene vacío
+    const norm = (t) => (t && /^\d{1,2}:\d{2}$/.test(String(t).trim()) ? String(t).trim().padStart(5, '0') : null);
+
+    await db.run(
+      `UPDATE shift_types SET label=?, description=?, color=?, text_color=?, is_work_shift=?, start_time=?, end_time=? WHERE code=?`,
+      [label, description || null, color, text_color || '#FFFFFF', is_work_shift ? 1 : 0, norm(start_time), norm(end_time), req.params.code]
+    );
+    res.json({ success: true });
   } catch (e) { next(e); }
 });
 

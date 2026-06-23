@@ -175,6 +175,8 @@ const COLUMNS = [
   { table: 'users',           column: 'signature',         def: "LONGTEXT NULL" },        // firma (data URL: imagen o PDF)
   { table: 'schedule_months', column: 'approval_state',    def: "VARCHAR(20) NOT NULL DEFAULT 'draft'" },
   { table: 'schedule_months', column: 'current_level',     def: "INT NOT NULL DEFAULT 1" },
+  { table: 'shift_types',     column: 'start_time',        def: "VARCHAR(5) NULL" },   // hora inicio "HH:MM"
+  { table: 'shift_types',     column: 'end_time',          def: "VARCHAR(5) NULL" },   // hora fin "HH:MM"
 ];
 
 async function ensureColumns(pool) {

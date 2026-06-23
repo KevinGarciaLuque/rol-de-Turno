@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   badge: { position: 'absolute', top: 0, right: 2, backgroundColor: COLORS.danger, borderRadius: 9, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
 
-  modal: { margin: 16, backgroundColor: COLORS.surface, borderRadius: 18, padding: 18 },
+  modal: { margin: 16, alignSelf: 'center', width: '100%', maxWidth: 440, backgroundColor: COLORS.surface, borderRadius: 18, padding: 18, maxHeight: '80%' },
   modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text },
   markAll: { color: COLORS.primary, fontWeight: '700', fontSize: 13 },

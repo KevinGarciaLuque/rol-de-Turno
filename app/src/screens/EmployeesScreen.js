@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
 
   fab: { position: 'absolute', right: 16, bottom: 16, backgroundColor: COLORS.primary },
 
-  modal: { margin: 20, backgroundColor: COLORS.surface, borderRadius: 20, overflow: 'hidden' },
+  modal: { margin: 20, alignSelf: 'center', width: '100%', maxWidth: 520, backgroundColor: COLORS.surface, borderRadius: 20, overflow: 'hidden' },
   modalHeader: { padding: 24, alignItems: 'center' },
   modalAvatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   modalAvatarText: { color: '#fff', fontSize: 26, fontWeight: '700' },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   closeBtn: { margin: 20, marginTop: 12, backgroundColor: COLORS.primary, padding: 14, borderRadius: 14, alignItems: 'center' },
   closeBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  formModal: { margin: 16, backgroundColor: COLORS.surface, borderRadius: 18, padding: 20, maxHeight: '88%' },
+  formModal: { margin: 16, alignSelf: 'center', width: '100%', maxWidth: 560, backgroundColor: COLORS.surface, borderRadius: 18, padding: 20, maxHeight: '88%' },
   formTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text, marginBottom: 14 },
   fieldLabel: { fontSize: 13, fontWeight: '700', color: COLORS.text, marginTop: 6, marginBottom: 8 },
   input: { marginBottom: 10, backgroundColor: '#fff' },

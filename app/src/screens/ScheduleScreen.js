@@ -15,6 +15,7 @@ import AreaStaffManager from '../components/AreaStaffManager';
 import ApprovalProgress from '../components/ApprovalProgress';
 import { printSchedule } from '../utils/printSchedule';
 import { useAuth } from '../context/AuthContext';
+import { useShifts } from '../context/ShiftsContext';
 
 const CELL_W = 30;
 const CELL_H = 28;
@@ -77,6 +78,7 @@ function generateAutoRotation({ pattern, startShift, daysWork, daysOff, offset, 
 export default function ScheduleScreen({ route }) {
   const { departmentId = 1, departmentName = 'Nefrología' } = route?.params || {};
   const { canEdit, isAdmin } = useAuth();
+  useShifts(); // re-renderiza el grid cuando el admin edita los turnos
 
   // Flujo de aprobación
   const [signing, setSigning]           = useState(false);
@@ -86,6 +88,7 @@ export default function ScheduleScreen({ route }) {
   const [timelineVisible, setTimelineVisible] = useState(false);
   const [staffVisible, setStaffVisible] = useState(false);
   const [printVisible, setPrintVisible] = useState(false);
+  const [apprExpanded, setApprExpanded] = useState(false);
 
   const today = new Date();
   const [year, setYear]   = useState(2026);
@@ -491,10 +494,10 @@ export default function ScheduleScreen({ route }) {
         )}
       </Surface>
 
-      {/* Barra de aprobación con stepper de progreso */}
+      {/* Barra de aprobación con stepper de progreso (colapsable) */}
       {approval && (
         <Surface style={styles.apprCard} elevation={1}>
-          <View style={styles.apprTop}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => setApprExpanded(e => !e)} style={styles.apprTop}>
             <View style={styles.apprStatus}>
               <View style={[styles.apprDot,
                 approval.state === 'approved' ? { backgroundColor: COLORS.success }
@@ -514,20 +517,41 @@ export default function ScheduleScreen({ route }) {
                 </Text>
               </View>
             </View>
-            <View style={styles.apprActions}>
-              <IconButton icon="timeline-clock-outline" size={20} onPress={() => setTimelineVisible(true)} style={{ margin: 0 }} />
-              {approval.can_reject && (
-                <Button compact mode="text" textColor={COLORS.danger} onPress={() => setRejectVisible(true)}>Rechazar</Button>
-              )}
-              {approval.can_sign && (
+
+            {/* Mini-stepper visible solo cuando está colapsado */}
+            {!apprExpanded && (
+              <View style={styles.apprMini}>
+                <ApprovalProgress approval={approval} compact />
+              </View>
+            )}
+
+            <View style={styles.apprHeaderRight}>
+              {!apprExpanded && approval.can_sign && (
                 <Button compact mode="contained" icon="draw" onPress={doSign} loading={signing} disabled={signing}>Firmar</Button>
               )}
-              {isAdmin && approval.state === 'approved' && (
-                <Button compact mode="outlined" icon="lock-open-variant" onPress={doReopen}>Reabrir</Button>
-              )}
+              <IconButton icon="timeline-clock-outline" size={20} onPress={() => setTimelineVisible(true)} style={{ margin: 0 }} />
+              <Ionicons name={apprExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.textLight} />
             </View>
-          </View>
-          <ApprovalProgress approval={approval} />
+          </TouchableOpacity>
+
+          {apprExpanded && (
+            <>
+              <ApprovalProgress approval={approval} />
+              {(approval.can_reject || approval.can_sign || (isAdmin && approval.state === 'approved')) && (
+                <View style={styles.apprActions}>
+                  {approval.can_reject && (
+                    <Button compact mode="text" textColor={COLORS.danger} onPress={() => setRejectVisible(true)}>Rechazar</Button>
+                  )}
+                  {approval.can_sign && (
+                    <Button compact mode="contained" icon="draw" onPress={doSign} loading={signing} disabled={signing}>Firmar</Button>
+                  )}
+                  {isAdmin && approval.state === 'approved' && (
+                    <Button compact mode="outlined" icon="lock-open-variant" onPress={doReopen}>Reabrir</Button>
+                  )}
+                </View>
+              )}
+            </>
+          )}
         </Surface>
       )}
 
@@ -537,7 +561,7 @@ export default function ScheduleScreen({ route }) {
         style={styles.scrollOuter}
         showsVerticalScrollIndicator={false}
       >
-        <ScrollView horizontal showsHorizontalScrollIndicator style={styles.scrollInner}>
+        <ScrollView horizontal showsHorizontalScrollIndicator style={styles.scrollInner} contentContainerStyle={styles.scrollInnerContent}>
           <View>
             {/* Day header */}
             <View style={[styles.row, styles.dayHeaderRow]}>
@@ -849,10 +873,11 @@ export default function ScheduleScreen({ route }) {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
             {Array.from({ length: Math.min(14, daysInMonth) }, (_, i) => {
               const preview = generateAutoRotation({ pattern: arPattern, startShift: arStartShift, daysWork: arDaysWork, daysOff: arDaysOff, offset: arOffset, totalDays: Math.min(14, daysInMonth) });
-              const shift = getShift(preview[i + 1] || 'L');
+              const code = preview[i + 1] || 'L';
+              const shift = getShift(code);
               return (
                 <View key={i} style={{ backgroundColor: shift.color, borderRadius: 4, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: shift.textColor, fontSize: 9, fontWeight: '700' }}>{shift.label}</Text>
+                  <Text style={{ color: shift.textColor, fontSize: 9, fontWeight: '700' }}>{code}</Text>
                 </View>
               );
             })}
@@ -979,9 +1004,10 @@ export default function ScheduleScreen({ route }) {
 
 function StatBadge({ label, value, color }) {
   return (
-    <View style={[styles.statBadge, { borderColor: color + '40' }]}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
+    <View style={styles.statBadge}>
+      <View style={[styles.statDot, { backgroundColor: color }]} />
       <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
     </View>
   );
 }
@@ -995,29 +1021,32 @@ const styles = StyleSheet.create({
   retryBtn: { marginTop: 20, backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  header: { backgroundColor: COLORS.header, paddingTop: 8, paddingBottom: 4 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 4 },
-  navBtn: { padding: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.15)' },
+  header: { backgroundColor: COLORS.header, paddingTop: 4, paddingBottom: 2 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 1 },
+  navBtn: { padding: 5, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.15)' },
   printBtn: { marginLeft: 8, backgroundColor: 'rgba(255,255,255,0.25)' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerMonth: { fontSize: 17, fontWeight: '800', color: '#fff' },
-  headerDept: { fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
+  headerMonth: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  headerDept: { fontSize: 10, color: 'rgba(255,255,255,0.8)' },
 
-  filterRow: { maxHeight: 36 },
+  filterRow: { maxHeight: 32, marginTop: 2 },
   filterContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
   chip: { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
   chipText: { color: '#fff', fontSize: 11 },
 
-  statsRow: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 4, gap: 6 },
+  statsRow: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 3, gap: 6 },
   statBadge: {
-    flex: 1, alignItems: 'center', paddingVertical: 3, borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 3, paddingHorizontal: 4, borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  statValue: { fontSize: 14, fontWeight: '800' },
-  statLabel: { fontSize: 9, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
+  statDot: { width: 7, height: 7, borderRadius: 4 },
+  statValue: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  statLabel: { fontSize: 11, color: 'rgba(255,255,255,0.85)' },
 
   scrollOuter: { flex: 1 },
   scrollInner: { flex: 1 },
+  scrollInnerContent: { flexGrow: 1, justifyContent: 'center' },
 
   row: { flexDirection: 'row', alignItems: 'center', minHeight: ROW_H, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
   rowEven: { backgroundColor: '#FAFAFA' },
@@ -1062,11 +1091,13 @@ const styles = StyleSheet.create({
 
   apprCard: { backgroundColor: COLORS.surface, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   apprTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' },
-  apprStatus: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 170 },
+  apprStatus: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1, minWidth: 140 },
   apprDot: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   apprState: { fontSize: 14, fontWeight: '800', color: COLORS.text },
   apprSub: { fontSize: 11, color: COLORS.textLight, marginTop: 1 },
-  apprActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  apprActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 8 },
+  apprMini: { width: 320 },
+  apprHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 2 },
 
   apprModalOverlay: { justifyContent: 'center', alignItems: 'center', padding: 16 },
   apprModal: { width: '100%', maxWidth: 640, backgroundColor: COLORS.surface, borderRadius: 18, padding: 20 },
@@ -1085,9 +1116,9 @@ const styles = StyleSheet.create({
   tlDate: { fontSize: 10, color: COLORS.textLight, marginTop: 4 },
 
   // Barra de herramientas de edición
-  editToolbar: { maxHeight: 42 },
-  editToolbarContent: { paddingHorizontal: 12, paddingVertical: 5, gap: 8, alignItems: 'center' },
-  editTool: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16 },
+  editToolbar: { maxHeight: 34 },
+  editToolbarContent: { paddingHorizontal: 12, paddingVertical: 3, gap: 8, alignItems: 'center' },
+  editTool: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16 },
   editToolActive: { backgroundColor: 'rgba(255,255,255,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
   editToolLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
 

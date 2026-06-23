@@ -160,7 +160,7 @@ export default function AreaStaffManager({ visible, onDismiss, departmentId, dep
 }
 
 const styles = StyleSheet.create({
-  modal: { margin: 16, backgroundColor: COLORS.surface, borderRadius: 18, padding: 18, maxHeight: '88%' },
+  modal: { margin: 16, alignSelf: 'center', width: '100%', maxWidth: 560, backgroundColor: COLORS.surface, borderRadius: 18, padding: 18, maxHeight: '88%' },
   head: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
   title: { fontSize: 18, fontWeight: '800', color: COLORS.text },
   sub: { fontSize: 13, color: COLORS.textLight, marginTop: 2 },

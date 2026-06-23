@@ -72,6 +72,8 @@ export const api = {
   updateEntry: (data) => client.put('/schedule/entry', data).then(r => r.data),
   updateStatus: (smId, status) => client.put(`/schedule/${smId}/status`, { status }).then(r => r.data),
   getShiftTypes: () => client.get('/schedule/shift-types/all').then(r => r.data),
+  createShiftType: (data) => client.post('/schedule/shift-types', data).then(r => r.data),
+  updateShiftType: (code, data) => client.put(`/schedule/shift-types/${code}`, data).then(r => r.data),
   getScheduleSummary: (deptId) => client.get(`/schedule/summary/${deptId}`).then(r => r.data),
 
   // Aprobación (flujo de firmas)

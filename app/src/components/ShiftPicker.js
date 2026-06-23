@@ -2,15 +2,19 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, Platform } from 'react-native';
 import { SHIFT_ORDER, getShift } from '../constants/shifts';
 import { COLORS } from '../constants/theme';
+import { useShifts } from '../context/ShiftsContext';
 
 export default function ShiftPicker({ visible, onSelect, onClose, currentCode }) {
+  const { shifts } = useShifts();
+  // Lista dinámica desde la BD (incluye turnos creados por el admin); si no cargó, usa el orden por defecto
+  const codes = shifts.length ? shifts.map(s => s.code) : SHIFT_ORDER;
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} onPress={onClose} activeOpacity={1}>
         <View style={styles.container}>
           <Text style={styles.title}>Seleccionar turno</Text>
           <ScrollView contentContainerStyle={styles.grid}>
-            {SHIFT_ORDER.map(code => {
+            {codes.map(code => {
               const shift = getShift(code);
               const isSelected = code === currentCode;
               return (

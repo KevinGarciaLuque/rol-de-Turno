@@ -18,12 +18,45 @@ export const SHIFT_TYPES = {
   VAC:  { label: 'VAC',  description: 'Vacaciones',              color: '#0277BD', textColor: '#FFFFFF', isWork: false },
   DP:   { label: 'DP',   description: 'Descanso Profesional',    color: '#4E342E', textColor: '#FFFFFF', isWork: false },
   INC:  { label: 'INC',  description: 'Incapacidad',             color: '#B71C1C', textColor: '#FFFFFF', isWork: false },
+  DEN:  { label: 'DEN',  description: 'Día de la Enfermera',     color: '#D81B60', textColor: '#FFFFFF', isWork: false },
 };
 
-export const SHIFT_ORDER = ['A','B','C','L','DE','TC','FS1','FS2','F11','F12','F141','F142','FJ1','FJ2','FV1','FV2','VAC','DP','INC'];
+export const SHIFT_ORDER = ['A','B','C','L','DE','TC','FS1','FS2','F11','F12','F141','F142','FJ1','FJ2','FV1','FV2','VAC','DP','INC','DEN'];
+
+// Overrides cargados desde la BD (el admin los edita). SHIFT_TYPES queda como respaldo/offline.
+let _overrides = {};
+
+const fmtTime = (t) => (t ? String(t).slice(0, 5) : null);
+
+// Lo llama ShiftsContext al cargar los turnos desde la API.
+export function setShiftOverrides(rows = []) {
+  const next = {};
+  for (const r of rows) {
+    next[r.code] = {
+      label: r.label,
+      description: r.description,
+      color: r.color,
+      textColor: r.text_color || '#FFFFFF',
+      isWork: !!r.is_work_shift,
+      startTime: fmtTime(r.start_time),
+      endTime: fmtTime(r.end_time),
+    };
+  }
+  _overrides = next;
+}
+
+const FALLBACK = { label: '?', description: 'Desconocido', color: '#9E9E9E', textColor: '#FFFFFF', isWork: false };
 
 export function getShift(code) {
-  return SHIFT_TYPES[code] || { label: code || '?', description: 'Desconocido', color: '#9E9E9E', textColor: '#FFFFFF', isWork: false };
+  const base = SHIFT_TYPES[code] || { ...FALLBACK, label: code || '?' };
+  const ov = _overrides[code];
+  const merged = ov ? { ...base, ...ov } : { ...base };
+  // Si tiene horario, la descripción muestra "(HH:MM–HH:MM)" (reemplaza cualquier paréntesis previo)
+  if (merged.startTime && merged.endTime) {
+    const baseDesc = (merged.description || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    merged.description = `${baseDesc} (${merged.startTime}–${merged.endTime})`;
+  }
+  return merged;
 }
 
 export const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

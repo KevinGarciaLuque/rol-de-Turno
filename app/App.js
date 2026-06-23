@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { theme } from './src/constants/theme';
 import { AuthProvider } from './src/context/AuthContext';
+import { ShiftsProvider } from './src/context/ShiftsContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
@@ -11,7 +12,9 @@ export default function App() {
       <PaperProvider theme={theme}>
         <StatusBar style="light" backgroundColor="#0D47A1" />
         <AuthProvider>
-          <AppNavigator />
+          <ShiftsProvider>
+            <AppNavigator />
+          </ShiftsProvider>
         </AuthProvider>
       </PaperProvider>
     </View>

@@ -7,6 +7,7 @@ import { COLORS } from '../constants/theme';
 import { ACCESS_ROLES, ACCESS_ROLE_LABELS, ACCESS_ROLE_DESC, ACCESS_ROLE_COLOR, APPROVAL_POSITIONS, APPROVAL_POSITION_LABELS } from '../constants/roles';
 import { pickSignature } from '../utils/pickSignature';
 import { useAuth } from '../context/AuthContext';
+import { useShifts } from '../context/ShiftsContext';
 
 export default function AdminScreen() {
   const [tab, setTab] = useState('users');
@@ -22,13 +23,16 @@ export default function AdminScreen() {
           buttons={[
             { value: 'users', label: 'Usuarios', icon: 'account-group' },
             { value: 'departments', label: 'Áreas', icon: 'hospital-building' },
+            { value: 'shifts', label: 'Turnos', icon: 'clock-outline' },
           ]}
         />
       </View>
 
       {tab === 'users'
         ? <UsersManager notify={setSnack} />
-        : <DepartmentsManager notify={setSnack} />}
+        : tab === 'departments'
+        ? <DepartmentsManager notify={setSnack} />
+        : <ShiftTypesManager notify={setSnack} />}
 
       <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={2500}>{snack}</Snackbar>
       </View>
@@ -140,27 +144,28 @@ function UsersManager({ notify }) {
       <View style={styles.toolbar}>
         <Button mode="text" icon="email-check-outline" compact onPress={() => setTestVisible(true)}>Probar correo</Button>
       </View>
-      <ScrollView contentContainerStyle={styles.list}>
-        {users.map(u => (
-          <TouchableOpacity key={u.id} onPress={() => openEdit(u)} activeOpacity={0.8}>
-            <Surface style={[styles.card, !u.is_active && styles.cardInactive]} elevation={1}>
-              <View style={[styles.avatar, { backgroundColor: ACCESS_ROLE_COLOR[u.role] || COLORS.primary }]}>
-                <Ionicons name="person" size={20} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{u.full_name}</Text>
-                <Text style={styles.cardMeta}>@{u.username}{!u.is_active ? ' · inactivo' : ''}</Text>
-              </View>
-              <View style={[styles.roleBadge, { backgroundColor: (ACCESS_ROLE_COLOR[u.role] || COLORS.primary) + '20' }]}>
-                <Text style={[styles.roleBadgeText, { color: ACCESS_ROLE_COLOR[u.role] || COLORS.primary }]}>{ACCESS_ROLE_LABELS[u.role] || u.role}</Text>
-              </View>
-            </Surface>
-          </TouchableOpacity>
-        ))}
-        <View style={{ height: 80 }} />
+      <ScrollView contentContainerStyle={styles.gridList}>
+        <View style={styles.grid}>
+          {users.map(u => (
+            <TouchableOpacity key={u.id} style={styles.cardItem} onPress={() => openEdit(u)} activeOpacity={0.8}>
+              <Surface style={[styles.card, { flex: 1 }, !u.is_active && styles.cardInactive]} elevation={1}>
+                <View style={[styles.avatar, { backgroundColor: ACCESS_ROLE_COLOR[u.role] || COLORS.primary }]}>
+                  <Ionicons name="person" size={20} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{u.full_name}</Text>
+                  <Text style={styles.cardMeta}>@{u.username}{!u.is_active ? ' · inactivo' : ''}</Text>
+                </View>
+                <View style={[styles.roleBadge, { backgroundColor: (ACCESS_ROLE_COLOR[u.role] || COLORS.primary) + '20' }]}>
+                  <Text style={[styles.roleBadgeText, { color: ACCESS_ROLE_COLOR[u.role] || COLORS.primary }]}>{ACCESS_ROLE_LABELS[u.role] || u.role}</Text>
+                </View>
+              </Surface>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
 
-      <FAB icon="account-plus" label="Usuario" style={styles.fab} onPress={openCreate} color="#fff" />
+      <FAB icon="account-plus" label="Usuario" size="small" style={styles.fab} onPress={openCreate} color="#fff" />
 
       <Portal>
         <Modal visible={testVisible} onDismiss={() => setTestVisible(false)} contentContainerStyle={styles.modal}>
@@ -336,25 +341,26 @@ function DepartmentsManager({ notify }) {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.list}>
-        {departments.map(d => (
-          <TouchableOpacity key={d.id} onPress={() => openEdit(d)} activeOpacity={0.8}>
-            <Surface style={styles.card} elevation={1}>
-              <View style={[styles.avatar, { backgroundColor: COLORS.secondary }]}>
-                <Ionicons name="business" size={20} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{d.name}</Text>
-                <Text style={styles.cardMeta}>{d.short_name ? d.short_name + ' · ' : ''}{d.supervisor || 'Sin supervisor'}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.textLight} />
-            </Surface>
-          </TouchableOpacity>
-        ))}
-        <View style={{ height: 80 }} />
+      <ScrollView contentContainerStyle={styles.gridList}>
+        <View style={styles.grid}>
+          {departments.map(d => (
+            <TouchableOpacity key={d.id} style={styles.cardItem} onPress={() => openEdit(d)} activeOpacity={0.8}>
+              <Surface style={[styles.card, { flex: 1 }]} elevation={1}>
+                <View style={[styles.avatar, { backgroundColor: COLORS.secondary }]}>
+                  <Ionicons name="business" size={20} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{d.name}</Text>
+                  <Text style={styles.cardMeta} numberOfLines={1}>{d.short_name ? d.short_name + ' · ' : ''}{d.supervisor || 'Sin supervisor'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.textLight} />
+              </Surface>
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
 
-      <FAB icon="plus" label="Área" style={styles.fab} onPress={openCreate} color="#fff" />
+      <FAB icon="plus" label="Área" size="small" style={styles.fab} onPress={openCreate} color="#fff" />
 
       <Portal>
         <Modal visible={modal} onDismiss={() => setModal(false)} contentContainerStyle={styles.modal}>
@@ -377,6 +383,174 @@ function DepartmentsManager({ notify }) {
   );
 }
 
+/* ----------------------------- TURNOS ----------------------------- */
+
+const COLOR_PRESETS = ['#2E7D32', '#1565C0', '#6A1B9A', '#E65100', '#00838F', '#AD1457', '#4527A0', '#757575', '#0277BD', '#B71C1C', '#F57F17', '#4E342E'];
+const emptyShiftForm = { code: '', label: '', description: '', color: '#1565C0', text_color: '#FFFFFF', is_work_shift: true, start_time: '', end_time: '' };
+
+function ShiftTypesManager({ notify }) {
+  const { reload: reloadShifts } = useShifts();
+  const [shifts, setShifts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyShiftForm);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try { setShifts(await api.getShiftTypes()); }
+    catch (e) { notify('No se pudieron cargar los turnos'); }
+    finally { setLoading(false); }
+  }, [notify]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openCreate = () => { setEditing(null); setForm(emptyShiftForm); setModal(true); };
+
+  const openEdit = (s) => {
+    setEditing(s);
+    setForm({
+      code: s.code,
+      label: s.label || '', description: s.description || '',
+      color: s.color || '#1565C0', text_color: s.text_color || '#FFFFFF',
+      is_work_shift: !!s.is_work_shift,
+      start_time: (s.start_time || '').slice(0, 5), end_time: (s.end_time || '').slice(0, 5),
+    });
+    setModal(true);
+  };
+
+  const validTime = (t) => t === '' || /^\d{1,2}:\d{2}$/.test(t.trim());
+
+  const save = async () => {
+    if (!editing && !/^[A-Za-z0-9]{1,16}$/.test(form.code.trim())) return notify('El código debe tener 1 a 16 letras o números (sin espacios)');
+    if (!form.label.trim()) return notify('La etiqueta es obligatoria');
+    if (!validTime(form.start_time) || !validTime(form.end_time)) return notify('Usa el formato de hora HH:MM (ej. 07:00)');
+    setSaving(true);
+    const payload = {
+      label: form.label.trim(),
+      description: form.description.trim(),
+      color: form.color.trim(),
+      text_color: form.text_color,
+      is_work_shift: form.is_work_shift ? 1 : 0,
+      start_time: form.start_time.trim(),
+      end_time: form.end_time.trim(),
+    };
+    try {
+      if (editing) {
+        await api.updateShiftType(editing.code, payload);
+        notify('Turno actualizado');
+      } else {
+        await api.createShiftType({ ...payload, code: form.code.trim().toUpperCase() });
+        notify('Turno creado');
+      }
+      setModal(false);
+      await load();
+      reloadShifts(); // refresca los turnos en toda la app (grid, selector, etc.)
+    } catch (e) {
+      notify(e.response?.data?.error || 'No se pudo guardar el turno');
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <Centered />;
+
+  const cleanTitle = (s) => (s.description || s.label || '').replace(/\s*\([^)]*\)\s*$/, '').trim() || s.label;
+
+  const renderCard = (s) => {
+    const hours = s.start_time && s.end_time ? `${s.start_time.slice(0, 5)} – ${s.end_time.slice(0, 5)}` : null;
+    return (
+      <TouchableOpacity key={s.code} style={styles.cardItem} onPress={() => openEdit(s)} activeOpacity={0.8}>
+        <Surface style={[styles.card, { flex: 1 }]} elevation={1}>
+          <View style={[styles.shiftSwatch, { backgroundColor: s.color }]}>
+            <Text style={[styles.shiftSwatchCode, { color: s.text_color || '#fff' }]}>{s.code}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={styles.cardTitle} numberOfLines={1}>{cleanTitle(s)}</Text>
+            {hours ? (
+              <View style={styles.hoursBadge}>
+                <Ionicons name="time-outline" size={12} color={COLORS.primary} />
+                <Text style={styles.hoursBadgeText}>{hours}</Text>
+              </View>
+            ) : (
+              <Text style={styles.cardMeta}>Sin horario</Text>
+            )}
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textLight} />
+        </Surface>
+      </TouchableOpacity>
+    );
+  };
+
+  const workShifts = shifts.filter(s => s.is_work_shift);
+  const otherShifts = shifts.filter(s => !s.is_work_shift);
+
+  return (
+    <>
+      <ScrollView contentContainerStyle={styles.gridList}>
+        {workShifts.length > 0 && <Text style={styles.sectionHeader}>Turnos de trabajo</Text>}
+        <View style={styles.grid}>{workShifts.map(renderCard)}</View>
+        {otherShifts.length > 0 && <Text style={styles.sectionHeader}>Ausencias y días especiales</Text>}
+        <View style={styles.grid}>{otherShifts.map(renderCard)}</View>
+        <View style={{ height: 90 }} />
+      </ScrollView>
+
+      <FAB icon="plus" label="Turno" size="small" style={styles.fab} onPress={openCreate} color="#fff" />
+
+      <Portal>
+        <Modal visible={modal} onDismiss={() => setModal(false)} contentContainerStyle={styles.modal}>
+          <ScrollView>
+            <Text style={styles.modalTitle}>{editing ? `Editar turno ${editing.code}` : 'Nuevo turno'}</Text>
+
+            <View style={[styles.shiftSwatch, styles.shiftSwatchBig, { backgroundColor: form.color, alignSelf: 'center', marginBottom: 14 }]}>
+              <Text style={[styles.shiftSwatchText, { color: form.text_color, fontSize: 16 }]}>{(editing ? editing.code : form.code) || '?'}</Text>
+            </View>
+
+            {!editing && (
+              <>
+                <TextInput label="Código (ej. A, DEN, TC)" value={form.code} onChangeText={v => setForm(f => ({ ...f, code: v.toUpperCase().replace(/[^A-Z0-9]/g, '') }))} mode="outlined" autoCapitalize="characters" maxLength={16} style={styles.input} />
+                <Text style={styles.help}>El código va dentro de cada celda del rol. No se puede cambiar después.</Text>
+              </>
+            )}
+
+            <TextInput label="Etiqueta (texto en la celda)" value={form.label} onChangeText={v => setForm(f => ({ ...f, label: v }))} mode="outlined" style={styles.input} />
+            <TextInput label="Descripción" value={form.description} onChangeText={v => setForm(f => ({ ...f, description: v }))} mode="outlined" style={styles.input} />
+
+            <Text style={styles.label}>Horario (formato 24h, HH:MM)</Text>
+            <View style={styles.timeRow}>
+              <TextInput label="Inicio" value={form.start_time} onChangeText={v => setForm(f => ({ ...f, start_time: v }))} mode="outlined" placeholder="07:00" style={[styles.input, { flex: 1 }]} />
+              <TextInput label="Fin" value={form.end_time} onChangeText={v => setForm(f => ({ ...f, end_time: v }))} mode="outlined" placeholder="15:00" style={[styles.input, { flex: 1 }]} />
+            </View>
+            <Text style={styles.help}>Déjalo vacío si el turno no tiene horario (ej. Libre, Vacaciones).</Text>
+
+            <Text style={styles.label}>Color</Text>
+            <View style={styles.swatchRow}>
+              {COLOR_PRESETS.map(c => (
+                <TouchableOpacity key={c} onPress={() => setForm(f => ({ ...f, color: c }))}
+                  style={[styles.colorDot, { backgroundColor: c }, form.color.toUpperCase() === c.toUpperCase() && styles.colorDotActive]} />
+              ))}
+            </View>
+            <TextInput label="Color (hex)" value={form.color} onChangeText={v => setForm(f => ({ ...f, color: v }))} mode="outlined" autoCapitalize="characters" style={styles.input} />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Texto blanco</Text>
+              <Switch value={form.text_color === '#FFFFFF'} onValueChange={v => setForm(f => ({ ...f, text_color: v ? '#FFFFFF' : '#000000' }))} />
+            </View>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Cuenta como turno de trabajo</Text>
+              <Switch value={form.is_work_shift} onValueChange={v => setForm(f => ({ ...f, is_work_shift: v }))} />
+            </View>
+
+            <View style={styles.modalActions}>
+              <View style={{ flex: 1 }} />
+              <Button mode="text" onPress={() => setModal(false)}>Cancelar</Button>
+              <Button mode="contained" onPress={save} loading={saving} disabled={saving}>Guardar</Button>
+            </View>
+          </ScrollView>
+        </Modal>
+      </Portal>
+    </>
+  );
+}
+
 function Centered() {
   return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
 }
@@ -385,11 +559,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   pageWrap: { maxWidth: 1080, width: '100%', alignSelf: 'center', flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabWrap: { padding: 12 },
-  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 2 },
+  tabWrap: { paddingHorizontal: 12, paddingVertical: 10, maxWidth: 520, width: '100%', alignSelf: 'center' },
+  toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 2, maxWidth: 960, width: '100%', alignSelf: 'center' },
 
-  list: { padding: 12, gap: 8 },
-  card: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14, backgroundColor: COLORS.surface, gap: 12 },
+  list: { padding: 12, gap: 8, alignItems: 'center' },
+  card: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 14, backgroundColor: COLORS.surface, gap: 12, width: '100%', maxWidth: 660 },
   cardInactive: { opacity: 0.55 },
   avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text },
@@ -399,7 +573,7 @@ const styles = StyleSheet.create({
 
   fab: { position: 'absolute', right: 16, bottom: 16, backgroundColor: COLORS.primary },
 
-  modal: { margin: 16, backgroundColor: COLORS.surface, borderRadius: 18, padding: 20, maxHeight: '88%' },
+  modal: { margin: 16, alignSelf: 'center', width: '100%', maxWidth: 520, backgroundColor: COLORS.surface, borderRadius: 18, padding: 20, maxHeight: '88%' },
   modalTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text, marginBottom: 14 },
   input: { marginBottom: 10, backgroundColor: '#fff' },
   label: { fontSize: 13, fontWeight: '700', color: COLORS.text, marginTop: 6, marginBottom: 8 },
@@ -426,4 +600,20 @@ const styles = StyleSheet.create({
   sigActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
 
   modalActions: { flexDirection: 'row', alignItems: 'center', marginTop: 18, gap: 4 },
+
+  // Cuadrícula reutilizable (Usuarios, Áreas, Turnos)
+  gridList: { padding: 12, paddingBottom: 90, maxWidth: 960, width: '100%', alignSelf: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  cardItem: { width: 300, maxWidth: '100%' },
+  sectionHeader: { width: '100%', fontSize: 12, fontWeight: '800', color: COLORS.textLight, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 10, marginBottom: 4, marginLeft: 4 },
+  shiftSwatch: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  shiftSwatchBig: { width: 64, height: 64, borderRadius: 16 },
+  shiftSwatchText: { fontSize: 13, fontWeight: '800' },
+  shiftSwatchCode: { fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
+  hoursBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: COLORS.primary + '14', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  hoursBadgeText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  timeRow: { flexDirection: 'row', gap: 10 },
+  swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
+  colorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: 'transparent' },
+  colorDotActive: { borderColor: COLORS.text },
 });
