@@ -607,14 +607,16 @@ export default function ScheduleScreen({ route }) {
                         <TouchableOpacity
                           onPress={() => { setAutoRotateEmp(emp); setArStartShift('A'); setArPattern('rotating'); setArDaysWork(2); setArDaysOff(1); setArOffset(1); setAutoRotateVisible(true); }}
                           style={styles.empQBtn}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons name="refresh-outline" size={12} color={COLORS.primary} />
+                          <Ionicons name="refresh-outline" size={17} color={COLORS.primary} />
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => { setFillRowEmp(emp); setFillRowShift('A'); setFillRowOnlyEmpty(true); setFillRowVisible(true); }}
                           style={styles.empQBtn}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
-                          <Ionicons name="reorder-four-outline" size={12} color={COLORS.primary} />
+                          <Ionicons name="reorder-four-outline" size={17} color={COLORS.primary} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -1123,8 +1125,8 @@ const styles = StyleSheet.create({
   editToolLabel: { color: '#fff', fontSize: 11, fontWeight: '600' },
 
   // Botones rápidos por empleada
-  empQuickActions: { flexDirection: 'row', gap: 3, marginTop: 3 },
-  empQBtn: { padding: 2, backgroundColor: 'rgba(21,101,192,0.12)', borderRadius: 3 },
+  empQuickActions: { flexDirection: 'row', gap: 5, marginTop: 4 },
+  empQBtn: { padding: 5, backgroundColor: 'rgba(21,101,192,0.12)', borderRadius: 6 },
 
   // Celda seleccionada
   cellWrapSelected: { backgroundColor: 'rgba(33,150,243,0.25)', borderWidth: 1.5, borderColor: '#1565C0', borderRadius: 5 },
