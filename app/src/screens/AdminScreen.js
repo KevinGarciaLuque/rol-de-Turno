@@ -14,6 +14,7 @@ export default function AdminScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.pageWrap}>
       <View style={styles.tabWrap}>
         <SegmentedButtons
           value={tab}
@@ -30,6 +31,7 @@ export default function AdminScreen() {
         : <DepartmentsManager notify={setSnack} />}
 
       <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={2500}>{snack}</Snackbar>
+      </View>
     </View>
   );
 }
@@ -381,6 +383,7 @@ function Centered() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
+  pageWrap: { maxWidth: 1080, width: '100%', alignSelf: 'center', flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   tabWrap: { padding: 12 },
   toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 2 },

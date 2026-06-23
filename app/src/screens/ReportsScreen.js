@@ -61,6 +61,7 @@ export default function ReportsScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageWrap}>
       {/* Department selector */}
       <Surface style={styles.deptSelector} elevation={2}>
         <Text style={styles.selectorLabel}>Área:</Text>
@@ -135,6 +136,7 @@ export default function ReportsScreen() {
       </Surface>
 
       <View style={{ height: 24 }} />
+      </View>
     </ScrollView>
   );
 }
@@ -160,6 +162,7 @@ function ShiftSummaryCard({ label, value, color, bg }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
+  pageWrap: { maxWidth: 1080, width: '100%', alignSelf: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   deptSelector: { flexDirection: 'row', alignItems: 'center', margin: 12, padding: 8, borderRadius: 14, backgroundColor: COLORS.surface, gap: 8 },

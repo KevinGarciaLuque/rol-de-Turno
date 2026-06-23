@@ -78,6 +78,7 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <View style={styles.pageWrap}>
       {/* Hero card */}
       <Surface style={styles.hero} elevation={4}>
         <View style={styles.heroTop}>
@@ -179,6 +180,7 @@ export default function DashboardScreen({ navigation }) {
       </Surface>
 
       <View style={{ height: 24 }} />
+      </View>
     </ScrollView>
   );
 }
@@ -194,6 +196,7 @@ function MiniShift({ label, value, color }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
+  pageWrap: { maxWidth: 1080, width: '100%', alignSelf: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: COLORS.bg },
   loadingText: { marginTop: 12, color: COLORS.textLight, fontSize: 15 },
   errorTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginTop: 16 },
@@ -222,7 +225,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginHorizontal: 16, marginTop: 16, marginBottom: 10 },
 
   areaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16 },
-  areaCardWrap: { width: 158, flexGrow: 1, maxWidth: 230 },
+  areaCardWrap: { width: 200, flexGrow: 1, maxWidth: 380 },
   areaCard: { flex: 1, minHeight: 168, borderRadius: 20, padding: 16, backgroundColor: COLORS.surface, justifyContent: 'space-between' },
   areaTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   areaIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

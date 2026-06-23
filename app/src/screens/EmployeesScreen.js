@@ -122,6 +122,7 @@ export default function EmployeesScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.pageWrap}>
       {/* Search */}
       <Surface style={styles.searchBar} elevation={2}>
         <Ionicons name="search" size={20} color={COLORS.textLight} />
@@ -186,6 +187,7 @@ export default function EmployeesScreen() {
       {canEdit && (
         <FAB icon="account-plus" label="Agregar" style={styles.fab} color="#fff" onPress={openCreate} />
       )}
+      </View>
 
       {/* Detalle de empleada */}
       <Portal>
@@ -293,6 +295,7 @@ function InfoRow({ icon, label, value, multiline }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
+  pageWrap: { maxWidth: 1080, width: '100%', alignSelf: 'center', flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   searchBar: { flexDirection: 'row', alignItems: 'center', margin: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, gap: 10, backgroundColor: COLORS.surface },

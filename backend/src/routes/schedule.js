@@ -315,4 +315,155 @@ router.post('/:scheduleMonthId/reopen', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/* =================== NUEVAS FUNCIONALIDADES =================== */
+
+// PUT /api/schedule/bulk-entries  — aplica múltiples turnos de una vez
+router.put('/bulk-entries', async (req, res, next) => {
+  try {
+    const { department_id, year, month, entries } = req.body;
+    if (!department_id || !year || !month || !Array.isArray(entries) || entries.length === 0)
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM schedule_months WHERE department_id=? AND year=? AND month=?', [department_id, year, month]);
+    if (existing && existing.approval_state === 'approved')
+      return res.status(423).json({ error: 'El rol está aprobado y bloqueado.' });
+    if (!(await canEditNow(db, req.user, department_id, existing)))
+      return res.status(403).json({ error: 'No tienes permiso para editar este rol.' });
+    const sm = await getOrCreateScheduleMonth(db, department_id, year, month);
+    let count = 0;
+    for (const e of entries) {
+      if (!e.employee_id || !e.day || !e.shift_code) continue;
+      await db.run(
+        `INSERT INTO schedule_entries (schedule_month_id, employee_id, day, shift_code)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE shift_code = VALUES(shift_code), updated_at = CURRENT_TIMESTAMP`,
+        [sm.id, e.employee_id, e.day, e.shift_code]
+      );
+      count++;
+    }
+    res.json({ success: true, count });
+  } catch (e) { next(e); }
+});
+
+// POST /api/schedule/copy-previous  — copia el mes anterior como borrador
+router.post('/copy-previous', async (req, res, next) => {
+  try {
+    const { department_id, year, month } = req.body;
+    if (!department_id || !year || !month) return res.status(400).json({ error: 'Faltan campos' });
+    const db = await getDb();
+    const target = await db.get('SELECT * FROM schedule_months WHERE department_id=? AND year=? AND month=?', [department_id, year, month]);
+    if (target && target.approval_state === 'approved')
+      return res.status(423).json({ error: 'El mes destino ya está aprobado y bloqueado.' });
+    if (!(await canEditNow(db, req.user, department_id, target)))
+      return res.status(403).json({ error: 'No tienes permiso para editar este rol.' });
+    let prevMonth = parseInt(month) - 1, prevYear = parseInt(year);
+    if (prevMonth < 1) { prevMonth = 12; prevYear--; }
+    const source = await db.get('SELECT * FROM schedule_months WHERE department_id=? AND year=? AND month=?', [department_id, prevYear, prevMonth]);
+    if (!source) return res.status(404).json({ error: `No hay rol guardado para ${prevMonth}/${prevYear}.` });
+    const sourceEntries = await db.all('SELECT * FROM schedule_entries WHERE schedule_month_id=?', source.id);
+    if (sourceEntries.length === 0) return res.status(404).json({ error: 'El mes anterior no tiene entradas.' });
+    const sm = await getOrCreateScheduleMonth(db, department_id, year, month);
+    const employees = await db.all('SELECT id FROM employees WHERE department_id=? AND is_active=1', department_id);
+    const empIds = new Set(employees.map(e => e.id));
+    const daysInTarget = new Date(parseInt(year), parseInt(month), 0).getDate();
+    let copied = 0;
+    for (const e of sourceEntries) {
+      if (!empIds.has(e.employee_id) || e.day > daysInTarget) continue;
+      await db.run(
+        `INSERT INTO schedule_entries (schedule_month_id, employee_id, day, shift_code)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE shift_code = VALUES(shift_code), updated_at = CURRENT_TIMESTAMP`,
+        [sm.id, e.employee_id, e.day, e.shift_code]
+      );
+      copied++;
+    }
+    res.json({ success: true, copied });
+  } catch (e) { next(e); }
+});
+
+// GET /api/schedule/templates/:departmentId
+router.get('/templates/:departmentId', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const templates = await db.all(
+      'SELECT * FROM schedule_templates WHERE department_id=? ORDER BY created_at DESC',
+      req.params.departmentId
+    );
+    res.json(templates);
+  } catch (e) { next(e); }
+});
+
+// POST /api/schedule/templates  — guarda el mes actual como plantilla
+router.post('/templates', async (req, res, next) => {
+  try {
+    const { department_id, year, month, name } = req.body;
+    if (!department_id || !year || !month || !name?.trim())
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
+    const db = await getDb();
+    const source = await db.get('SELECT * FROM schedule_months WHERE department_id=? AND year=? AND month=?', [department_id, year, month]);
+    if (!source) return res.status(404).json({ error: 'No hay rol guardado para este mes.' });
+    const sourceEntries = await db.all('SELECT * FROM schedule_entries WHERE schedule_month_id=?', source.id);
+    const r = await db.run(
+      'INSERT INTO schedule_templates (department_id, name, created_by) VALUES (?, ?, ?)',
+      [department_id, name.trim(), req.user.id]
+    );
+    const tplId = r.lastID;
+    for (const e of sourceEntries) {
+      await db.run(
+        `INSERT INTO schedule_template_entries (template_id, employee_id, day, shift_code)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE shift_code = VALUES(shift_code)`,
+        [tplId, e.employee_id, e.day, e.shift_code]
+      );
+    }
+    res.json({ success: true, id: tplId });
+  } catch (e) { next(e); }
+});
+
+// POST /api/schedule/templates/:id/apply  — aplica una plantilla al mes actual
+router.post('/templates/:id/apply', async (req, res, next) => {
+  try {
+    const { department_id, year, month } = req.body;
+    if (!department_id || !year || !month) return res.status(400).json({ error: 'Faltan campos' });
+    const db = await getDb();
+    const target = await db.get('SELECT * FROM schedule_months WHERE department_id=? AND year=? AND month=?', [department_id, year, month]);
+    if (target && target.approval_state === 'approved')
+      return res.status(423).json({ error: 'El mes está aprobado y bloqueado.' });
+    if (!(await canEditNow(db, req.user, department_id, target)))
+      return res.status(403).json({ error: 'No tienes permiso.' });
+    const tpl = await db.get('SELECT * FROM schedule_templates WHERE id=?', req.params.id);
+    if (!tpl) return res.status(404).json({ error: 'Plantilla no encontrada.' });
+    const tplEntries = await db.all('SELECT * FROM schedule_template_entries WHERE template_id=?', req.params.id);
+    const sm = await getOrCreateScheduleMonth(db, department_id, year, month);
+    const employees = await db.all('SELECT id FROM employees WHERE department_id=? AND is_active=1', department_id);
+    const empIds = new Set(employees.map(e => e.id));
+    const daysInTarget = new Date(parseInt(year), parseInt(month), 0).getDate();
+    let applied = 0;
+    for (const e of tplEntries) {
+      if (!empIds.has(e.employee_id) || e.day > daysInTarget) continue;
+      await db.run(
+        `INSERT INTO schedule_entries (schedule_month_id, employee_id, day, shift_code)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE shift_code = VALUES(shift_code), updated_at = CURRENT_TIMESTAMP`,
+        [sm.id, e.employee_id, e.day, e.shift_code]
+      );
+      applied++;
+    }
+    res.json({ success: true, applied });
+  } catch (e) { next(e); }
+});
+
+// DELETE /api/schedule/templates/:id
+router.delete('/templates/:id', async (req, res, next) => {
+  try {
+    const db = await getDb();
+    const tpl = await db.get('SELECT * FROM schedule_templates WHERE id=?', req.params.id);
+    if (!tpl) return res.status(404).json({ error: 'Plantilla no encontrada.' });
+    if (req.user.role !== 'admin' && tpl.created_by !== req.user.id)
+      return res.status(403).json({ error: 'No tienes permiso para eliminar esta plantilla.' });
+    await db.run('DELETE FROM schedule_templates WHERE id=?', req.params.id);
+    res.json({ success: true });
+  } catch (e) { next(e); }
+});
+
 module.exports = router;

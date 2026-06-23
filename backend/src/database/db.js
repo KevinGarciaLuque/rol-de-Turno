@@ -145,6 +145,27 @@ const TABLES = [
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
+
+  // Plantillas reutilizables de rol mensual
+  `CREATE TABLE IF NOT EXISTS schedule_templates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    department_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_by INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE CASCADE
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS schedule_template_entries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    template_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    day INT NOT NULL,
+    shift_code VARCHAR(10) NOT NULL,
+    UNIQUE KEY uq_tpl_entry (template_id, employee_id, day),
+    FOREIGN KEY (template_id) REFERENCES schedule_templates(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+  )`,
 ];
 
 // Columnas que se agregan a tablas existentes (MySQL 8 no soporta ADD COLUMN IF NOT EXISTS)

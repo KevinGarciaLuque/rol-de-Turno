@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 // Backend en la nube (Railway). Para volver a desarrollo local, cambia USE_LOCAL a true.
 const PROD_URL = 'https://rol.up.railway.app/api';
-const USE_LOCAL = false;
+const USE_LOCAL = true; // ← cambiar a false para producción
 
 // En desarrollo local: localhost (web/iOS) o 10.0.2.2 (emulador Android)
 const LOCAL_URL = Platform.select({
@@ -86,6 +86,16 @@ export const api = {
   markNotificationRead: (id) => client.put(`/notifications/${id}/read`).then(r => r.data),
   markAllNotificationsRead: () => client.put('/notifications/read-all').then(r => r.data),
   testEmail: (to) => client.post('/notifications/test', { to }).then(r => r.data),
+
+  // Bulk / auto-fill
+  bulkEntries:   (data) => client.put('/schedule/bulk-entries', data).then(r => r.data),
+  copyPrevious:  (data) => client.post('/schedule/copy-previous', data).then(r => r.data),
+
+  // Templates
+  getTemplates:   (deptId) => client.get(`/schedule/templates/${deptId}`).then(r => r.data),
+  saveTemplate:   (data)   => client.post('/schedule/templates', data).then(r => r.data),
+  applyTemplate:  (id, data) => client.post(`/schedule/templates/${id}/apply`, data).then(r => r.data),
+  deleteTemplate: (id)     => client.delete(`/schedule/templates/${id}`).then(r => r.data),
 
   // Health
   health: () => client.get('/health').then(r => r.data),

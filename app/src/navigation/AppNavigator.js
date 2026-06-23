@@ -65,7 +65,8 @@ function DepartmentSelect({ navigation }) {
   if (loading) return <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}><ActivityIndicator color={COLORS.primary} /></View>;
 
   return (
-    <View style={{ flex:1, backgroundColor: COLORS.bg, padding: 16, gap: 12 }}>
+    <View style={{ flex:1, backgroundColor: COLORS.bg, alignItems: 'center' }}>
+      <View style={{ maxWidth: 760, width: '100%', padding: 16, gap: 12 }}>
       <Text style={{ fontSize:18, fontWeight:'700', color: COLORS.text, marginBottom: 8 }}>Selecciona un área para ver su rol:</Text>
       {departments.map(d => (
         <TouchableOpacity key={d.id} onPress={() => navigation.navigate('Schedule', { departmentId: d.id, departmentName: d.name })}>
@@ -79,6 +80,7 @@ function DepartmentSelect({ navigation }) {
           </Surface>
         </TouchableOpacity>
       ))}
+      </View>
     </View>
   );
 }
