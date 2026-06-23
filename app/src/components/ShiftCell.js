@@ -14,7 +14,7 @@ export default function ShiftCell({ code, size = 'md', onPress, editable }) {
       activeOpacity={0.7}
     >
       <Text style={[styles.label, { fontSize: s.fs, color: shift.textColor }]} numberOfLines={1}>
-        {code}
+        {shift.cellText}
       </Text>
     </TouchableOpacity>
   );

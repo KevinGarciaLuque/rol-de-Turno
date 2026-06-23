@@ -877,7 +877,7 @@ export default function ScheduleScreen({ route }) {
               const shift = getShift(code);
               return (
                 <View key={i} style={{ backgroundColor: shift.color, borderRadius: 4, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: shift.textColor, fontSize: 9, fontWeight: '700' }}>{code}</Text>
+                  <Text style={{ color: shift.textColor, fontSize: 9, fontWeight: '700' }}>{shift.cellText}</Text>
                 </View>
               );
             })}

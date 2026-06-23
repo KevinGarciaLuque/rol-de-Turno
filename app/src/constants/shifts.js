@@ -51,6 +51,9 @@ export function getShift(code) {
   const base = SHIFT_TYPES[code] || { ...FALLBACK, label: code || '?' };
   const ov = _overrides[code];
   const merged = ov ? { ...base, ...ov } : { ...base };
+  // Texto corto que va dentro de la celda: usa la etiqueta corta/bonita del catálogo
+  // (A, B, F1², FS²…); si es un turno nuevo creado por el admin, usa su código.
+  merged.cellText = (SHIFT_TYPES[code] && SHIFT_TYPES[code].label) || code || '?';
   // Si tiene horario, la descripción muestra "(HH:MM–HH:MM)" (reemplaza cualquier paréntesis previo)
   if (merged.startTime && merged.endTime) {
     const baseDesc = (merged.description || '').replace(/\s*\([^)]*\)\s*$/, '').trim();

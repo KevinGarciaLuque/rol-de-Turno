@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { ACCESS_ROLE_LABELS } from '../constants/roles';
 
 import DashboardScreen  from '../screens/DashboardScreen';
 import ScheduleScreen   from '../screens/ScheduleScreen';
@@ -17,24 +18,56 @@ import NotificationBell from '../components/NotificationBell';
 const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// Botón de cerrar sesión + nombre del usuario, para el header
+// Identidad del usuario + cerrar sesión, para el header
 function HeaderLogout() {
   const { user, logout } = useAuth();
+  const initials = (user?.full_name || '?')
+    .split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 8 }}>
+    <View style={hl.wrap}>
       <NotificationBell />
-      <TouchableOpacity onPress={logout} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8 }}>
-        <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{user?.full_name}</Text>
-        <Ionicons name="log-out-outline" size={22} color="#fff" />
-      </TouchableOpacity>
+      <View style={hl.chip}>
+        <View style={hl.avatar}>
+          <Text style={hl.avatarText}>{initials}</Text>
+        </View>
+        <View style={hl.info}>
+          <Text style={hl.name} numberOfLines={1}>{user?.full_name}</Text>
+          <Text style={hl.role} numberOfLines={1}>{ACCESS_ROLE_LABELS[user?.role] || user?.role}</Text>
+        </View>
+        <View style={hl.divider} />
+        <TouchableOpacity onPress={logout} style={hl.logoutBtn} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={18} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
+const hl = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 10 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 22,
+    paddingLeft: 4, paddingRight: 4, paddingVertical: 3,
+  },
+  avatar: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  info: { maxWidth: 160 },
+  name: { color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 16 },
+  role: { color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3, lineHeight: 12 },
+  divider: { width: 1, height: 24, backgroundColor: 'rgba(255,255,255,0.3)' },
+  logoutBtn: { padding: 6, borderRadius: 16 },
+});
+
 function DashboardStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' } }}>
-      <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Rol de Turno', headerRight: () => <HeaderLogout /> }} />
+    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' }, headerRight: () => <HeaderLogout /> }}>
+      <Stack.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Rol de Turno' }} />
       <Stack.Screen name="Schedule"  component={ScheduleScreen}  options={({ route }) => ({ title: route.params?.departmentName || 'Programación' })} />
     </Stack.Navigator>
   );
@@ -42,7 +75,7 @@ function DashboardStack() {
 
 function ScheduleStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' } }}>
+    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' }, headerRight: () => <HeaderLogout /> }}>
       <Stack.Screen name="ScheduleSelect" component={DepartmentSelect} options={{ title: 'Seleccionar Área' }} />
       <Stack.Screen name="Schedule" component={ScheduleScreen} options={({ route }) => ({ title: route.params?.departmentName || 'Programación' })} />
     </Stack.Navigator>
@@ -142,7 +175,7 @@ export default function AppNavigator() {
 function withHeader(Component, title) {
   const Wrapped = (props) => {
     return (
-      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' } }}>
+      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' }, headerRight: () => <HeaderLogout /> }}>
         <Stack.Screen name={title} component={Component} options={{ title }} />
       </Stack.Navigator>
     );
