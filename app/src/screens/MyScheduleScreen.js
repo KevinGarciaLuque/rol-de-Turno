@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, useWindowDimensions } from 'react-native';
 import { Surface, SegmentedButtons, Portal, Modal } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
@@ -28,6 +28,8 @@ function buildWeeks(year, month) {
 export default function MyScheduleScreen() {
   const { employee } = useAuth();
   const { version } = useShifts(); // re-render si el admin cambia colores/etiquetas de turnos
+  const { width: winW } = useWindowDimensions();
+  const isWide = winW >= 720; // escritorio / tablet apaisada
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -113,7 +115,9 @@ export default function MyScheduleScreen() {
   return (
     <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scroll, isWide && styles.scrollWide]}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
       >
         {/* Encabezado del usuario */}
@@ -131,66 +135,67 @@ export default function MyScheduleScreen() {
           </View>
         </Surface>
 
-        {/* Selector de vista */}
-        <View style={styles.viewToggle}>
-          <SegmentedButtons
-            value={view}
-            onValueChange={setView}
-            buttons={[
-              { value: 'month', label: 'Mes', icon: 'calendar-month' },
-              { value: 'week', label: 'Semana', icon: 'calendar-week' },
-            ]}
-          />
-        </View>
+        {/* Controles (vista + navegación). En escritorio se mantienen compactos y centrados. */}
+        <View style={isWide && styles.controlsWide}>
+          <View style={styles.viewToggle}>
+            <SegmentedButtons
+              value={view}
+              onValueChange={setView}
+              buttons={[
+                { value: 'month', label: 'Mes', icon: 'calendar-month' },
+                { value: 'week', label: 'Semana', icon: 'calendar-week' },
+              ]}
+            />
+          </View>
 
-        {/* Navegación de mes/semana */}
-        <View style={styles.navBar}>
-          <TouchableOpacity onPress={goPrev} style={styles.navBtn}><Ionicons name="chevron-back" size={22} color={COLORS.primary} /></TouchableOpacity>
-          <TouchableOpacity onPress={goToday} style={styles.navTitleWrap} activeOpacity={0.7}>
-            <Text style={styles.navTitle}>{MONTHS_ES[month - 1]} {year}</Text>
-            <Text style={styles.navHint}>Toca para ir a hoy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={goNext} style={styles.navBtn}><Ionicons name="chevron-forward" size={22} color={COLORS.primary} /></TouchableOpacity>
+          {/* Navegación de mes/semana */}
+          <View style={styles.navBar}>
+            <TouchableOpacity onPress={goPrev} style={styles.navBtn}><Ionicons name="chevron-back" size={22} color={COLORS.primary} /></TouchableOpacity>
+            <TouchableOpacity onPress={goToday} style={styles.navTitleWrap} activeOpacity={0.7}>
+              <Text style={styles.navTitle}>{MONTHS_ES[month - 1]} {year}</Text>
+              <Text style={styles.navHint}>Toca para ir a hoy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={goNext} style={styles.navBtn}><Ionicons name="chevron-forward" size={22} color={COLORS.primary} /></TouchableOpacity>
+          </View>
         </View>
 
         {loading ? (
           <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>
         ) : !published ? (
           <EmptyState month={month} year={year} />
-        ) : (
-          <>
-            {/* Próximo turno */}
-            {data?.nextShift && <NextShiftCard nextShift={data.nextShift} />}
+        ) : (() => {
+          // Piezas del contenido (se reordenan según el ancho de pantalla)
+          const next = data?.nextShift ? <NextShiftCard nextShift={data.nextShift} /> : null;
+          const calendar = view === 'month'
+            ? <MonthGrid weeks={weeks} codeFor={codeFor} isToday={isToday} isWide={isWide} onPick={(d) => setDetail({ day: d, code: codeFor(d) })} />
+            : <WeekList week={weeks[Math.min(weekIndex, weeks.length - 1)] || []} month={month} year={year} codeFor={codeFor} isToday={isToday} onPick={(d) => setDetail({ day: d, code: codeFor(d) })} />;
+          const summary = totals.length > 0 ? <MonthSummary totals={totals} /> : null;
+          const legend = <Legend codes={totals.map(([c]) => c)} />;
 
-            {/* Calendario */}
-            {view === 'month'
-              ? <MonthGrid weeks={weeks} codeFor={codeFor} isToday={isToday} onPick={(d) => setDetail({ day: d, code: codeFor(d) })} />
-              : <WeekList week={weeks[Math.min(weekIndex, weeks.length - 1)] || []} month={month} year={year} codeFor={codeFor} isToday={isToday} onPick={(d) => setDetail({ day: d, code: codeFor(d) })} />
-            }
-
-            {/* Totales del mes */}
-            {totals.length > 0 && (
-              <Surface style={styles.card} elevation={1}>
-                <Text style={styles.cardTitle}>Resumen del mes</Text>
-                <View style={styles.totalsWrap}>
-                  {totals.map(([code, n]) => {
-                    const sh = getShift(code);
-                    return (
-                      <View key={code} style={styles.totalPill}>
-                        <View style={[styles.totalDot, { backgroundColor: sh.color }]} />
-                        <Text style={styles.totalLabel}>{sh.cellText}</Text>
-                        <Text style={styles.totalCount}>{n}</Text>
-                      </View>
-                    );
-                  })}
+          // Escritorio/tablet apaisada: dos columnas (calendario | panel lateral)
+          if (isWide) {
+            return (
+              <View style={styles.twoCol}>
+                <View style={styles.leftCol}>{calendar}</View>
+                <View style={styles.rightCol}>
+                  {next}
+                  {summary}
+                  {legend}
                 </View>
-              </Surface>
-            )}
+              </View>
+            );
+          }
 
-            {/* Leyenda de los turnos presentes */}
-            <Legend codes={totals.map(([c]) => c)} />
-          </>
-        )}
+          // Móvil: una sola columna
+          return (
+            <>
+              {next}
+              {calendar}
+              {summary}
+              {legend}
+            </>
+          );
+        })()}
         <View style={{ height: 24 }} />
       </ScrollView>
 
@@ -227,7 +232,10 @@ function NextShiftCard({ nextShift }) {
   );
 }
 
-function MonthGrid({ weeks, codeFor, isToday, onPick }) {
+function MonthGrid({ weeks, codeFor, isToday, isWide, onPick }) {
+  // En escritorio las celdas se hacen rectangulares (más anchas que altas) para
+  // que no queden como cuadrados gigantes; en móvil se mantienen cuadradas.
+  const cellShape = isWide && { aspectRatio: 1.5 };
   return (
     <Surface style={styles.card} elevation={1}>
       <View style={styles.weekHeader}>
@@ -238,11 +246,11 @@ function MonthGrid({ weeks, codeFor, isToday, onPick }) {
       {weeks.map((week, wi) => (
         <View key={wi} style={styles.weekRow}>
           {week.map((cell, ci) => {
-            if (!cell) return <View key={ci} style={styles.dayCell} />;
+            if (!cell) return <View key={ci} style={[styles.dayCell, cellShape]} />;
             const sh = getShift(codeFor(cell.day));
             const today = isToday(cell.day);
             return (
-              <TouchableOpacity key={ci} style={styles.dayCell} activeOpacity={0.7} onPress={() => onPick(cell.day)}>
+              <TouchableOpacity key={ci} style={[styles.dayCell, cellShape]} activeOpacity={0.7} onPress={() => onPick(cell.day)}>
                 <View style={[styles.dayInner, { backgroundColor: sh.color }, today && styles.dayToday]}>
                   <Text style={[styles.dayNum, { color: sh.textColor }]}>{cell.day}</Text>
                   <Text style={[styles.dayCode, { color: sh.textColor }]} numberOfLines={1}>{sh.cellText}</Text>
@@ -314,6 +322,26 @@ function DayDetail({ day, code, month, year }) {
   );
 }
 
+function MonthSummary({ totals }) {
+  return (
+    <Surface style={styles.card} elevation={1}>
+      <Text style={styles.cardTitle}>Resumen del mes</Text>
+      <View style={styles.totalsWrap}>
+        {totals.map(([code, n]) => {
+          const sh = getShift(code);
+          return (
+            <View key={code} style={styles.totalPill}>
+              <View style={[styles.totalDot, { backgroundColor: sh.color }]} />
+              <Text style={styles.totalLabel}>{sh.cellText}</Text>
+              <Text style={styles.totalCount}>{n}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </Surface>
+  );
+}
+
 function Legend({ codes }) {
   if (!codes.length) return null;
   return (
@@ -349,8 +377,16 @@ function EmptyState({ month, year }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: { padding: 14, paddingBottom: 30, maxWidth: 760, width: '100%', alignSelf: 'center' },
+  scrollView: { flex: 1, width: '100%' },
+  scroll: { padding: 14, paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
+  scrollWide: { maxWidth: 1000, paddingHorizontal: 24 },
   center: { padding: 40, alignItems: 'center' },
+
+  // Escritorio: controles compactos arriba + dos columnas debajo
+  controlsWide: { maxWidth: 680, width: '100%', alignSelf: 'center' },
+  twoCol: { flexDirection: 'row', alignItems: 'flex-start', gap: 16 },
+  leftCol: { flex: 1, minWidth: 0 },
+  rightCol: { width: 320 },
 
   hero: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, backgroundColor: COLORS.header, marginBottom: 14 },
   heroAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' },
