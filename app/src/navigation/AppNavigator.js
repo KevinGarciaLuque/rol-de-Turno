@@ -126,8 +126,19 @@ function DepartmentSelect({ navigation }) {
 function EmployeeNavigator() {
   return (
     <NavigationContainer>
-      <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={() => null}>
-        <Tab.Screen name="MiHorario" component={withHeader(MyScheduleScreen, 'Mi Horario')} options={{ title: 'Mi Horario' }} />
+      <Tab.Navigator
+        sceneContainerStyle={{ flex: 1 }}
+        screenOptions={{
+          headerShown: true,
+          headerStyle: { backgroundColor: COLORS.header },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '700' },
+          headerRight: () => <HeaderLogout />,
+          tabBarStyle: { display: 'none' },
+        }}
+        tabBar={() => null}
+      >
+        <Tab.Screen name="MiHorario" component={MyScheduleScreen} options={{ title: 'Mi Horario' }} />
       </Tab.Navigator>
     </NavigationContainer>
   );
