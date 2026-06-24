@@ -120,12 +120,15 @@ function DepartmentSelect({ navigation }) {
 }
 
 // Vista exclusiva para empleadas vinculadas: solo su propio horario.
+// Usa el Tab navigator (con la barra oculta) + withHeader para heredar el mismo
+// manejo de altura/scroll que el resto de pantallas; un Stack suelto no acota la
+// altura en web y el contenido no hace scroll vertical.
 function EmployeeNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' }, headerRight: () => <HeaderLogout /> }}>
-        <Stack.Screen name="MySchedule" component={MyScheduleScreen} options={{ title: 'Mi Horario' }} />
-      </Stack.Navigator>
+      <Tab.Navigator screenOptions={{ headerShown: false }} tabBar={() => null}>
+        <Tab.Screen name="MiHorario" component={withHeader(MyScheduleScreen, 'Mi Horario')} options={{ title: 'Mi Horario' }} />
+      </Tab.Navigator>
     </NavigationContainer>
   );
 }
