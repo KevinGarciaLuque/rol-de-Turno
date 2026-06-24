@@ -52,7 +52,7 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
 
   // Anchos de columna fijos (mismos para las dos tablas, para que alineen)
   const col = (w) => `<col style="width:${w}">`;
-  const colgroupHtml = `<colgroup>${col('16px')}${col('40px')}${col('200px')}${days.map(() => col('16px')).join('')}${col('16px')}${col('16px')}${col('16px')}${col('16px')}${col('110px')}</colgroup>`;
+  const colgroupHtml = `<colgroup>${col('16px')}${col('38px')}${col('150px')}${days.map(() => col('18px')).join('')}${col('16px')}${col('16px')}${col('16px')}${col('16px')}${col('110px')}</colgroup>`;
 
   const isWeekend = (d) => {
     const dow = new Date(year, month - 1, d).getDay();
@@ -81,7 +81,7 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
       const code = matrix[emp.id]?.[d] || 'L';
       const sh = getShift(code);
       const wk = isWeekend(d) ? 'wknd' : '';
-      return `<td class="cell ${wk}" style="background:${sh.color};color:${sh.textColor}">${esc(sh.label)}</td>`;
+      return `<td class="cell ${wk}" style="background:${sh.color};color:${sh.textColor}">${esc(sh.cellText)}</td>`;
     }).join('');
     return `
       <tr class="emp">
@@ -184,8 +184,20 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
 <title>Rol de Turno · ${esc(dept?.name)} · ${esc(MONTHS_ES[month - 1])} ${year}</title>
 <style>
   @page { size: ${pageSize}; margin: 6mm; }
-  * { box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  body {
+    font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
 
   /* ===== Encabezado ===== */
   .head { display: flex; align-items: stretch; border: 1.5px solid #000; }
@@ -204,16 +216,16 @@ export function buildScheduleHtml({ dept, year, month, employees, matrix, dailyC
 
   /* ===== Rejilla ===== */
   .grid { border-collapse: collapse; width: 100%; margin-top: 4px; table-layout: fixed; }
-  .grid th, .grid td { border: 0.5px solid #999; text-align: center; font-size: 8px; padding: 0; height: 16px; }
-  .grid .day { background: #BBDEFB; font-weight: 700; width: 16px; }
+  .grid th, .grid td { border: 0.5px solid #999; text-align: center; font-size: 9.5px; padding: 0; height: 17px; }
+  .grid .day { background: #BBDEFB; font-weight: 700; width: 18px; }
   .grid .wknd { color: #B71C1C; }
   td.wknd, th.wknd { background: rgba(255,205,210,0.35); }
   .grid .corner { background: #BBDEFB; font-weight: 700; }
   .grid .num   { width: 16px; }
-  .grid .clave { width: 38px; font-size: 7px; }
-  .grid .namehead { width: 200px; }
-  .grid .name  { width: 200px; text-align: left; padding-left: 4px; font-size: 9px; font-weight: 600; white-space: normal; word-break: break-word; line-height: 1.1; }
-  .grid .cell  { font-weight: 700; }
+  .grid .clave { width: 38px; font-size: 7.5px; }
+  .grid .namehead { width: 150px; }
+  .grid .name  { width: 150px; text-align: left; padding-left: 4px; font-size: 9px; font-weight: 600; white-space: normal; word-break: break-word; line-height: 1.1; }
+  .grid .cell  { font-weight: 700; font-size: 10px; }
   .grid .tot   { width: 16px; font-weight: 700; }
   .grid .tA { background:#E8F5E9; } .grid .tB { background:#E3F2FD; }
   .grid .tC { background:#F3E5F5; } .grid .tL { background:#FAFAFA; }
