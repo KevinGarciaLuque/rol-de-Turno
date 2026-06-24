@@ -42,12 +42,14 @@ export default function AdminScreen() {
 
 /* ----------------------------- USUARIOS ----------------------------- */
 
-const emptyUserForm = { username: '', full_name: '', role: 'lector', password: '', departments: [], is_active: 1, email: '', approval_position: '', signature: null, signatureChanged: false, signatureName: '' };
+const emptyUserForm = { username: '', full_name: '', role: 'lector', password: '', departments: [], is_active: 1, email: '', approval_position: '', signature: null, signatureChanged: false, signatureName: '', employee_id: null };
 
 function UsersManager({ notify }) {
   const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [empQuery, setEmpQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null); // user being edited or null (create)
@@ -59,8 +61,8 @@ function UsersManager({ notify }) {
 
   const load = useCallback(async () => {
     try {
-      const [u, d] = await Promise.all([api.getUsers(), api.getDepartments()]);
-      setUsers(u); setDepartments(d);
+      const [u, d, e] = await Promise.all([api.getUsers(), api.getDepartments(), api.getEmployees()]);
+      setUsers(u); setDepartments(d); setEmployees(e);
     } catch (e) {
       notify('No se pudieron cargar los usuarios');
     } finally { setLoading(false); }
@@ -68,10 +70,11 @@ function UsersManager({ notify }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const openCreate = () => { setEditing(null); setForm(emptyUserForm); setModal(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyUserForm); setEmpQuery(''); setModal(true); };
   const openEdit = async (u) => {
     setEditing(u);
-    setForm({ username: u.username, full_name: u.full_name, role: u.role, password: '', departments: u.departments || [], is_active: u.is_active, email: u.email || '', approval_position: u.approval_position || '', signature: null, signatureChanged: false, signatureName: '' });
+    setEmpQuery('');
+    setForm({ username: u.username, full_name: u.full_name, role: u.role, password: '', departments: u.departments || [], is_active: u.is_active, email: u.email || '', approval_position: u.approval_position || '', signature: null, signatureChanged: false, signatureName: '', employee_id: u.employee_id || null });
     setModal(true);
     // Cargar la firma existente para previsualizarla (no se reenvía salvo que se cambie)
     if (u.has_signature) {
@@ -99,8 +102,10 @@ function UsersManager({ notify }) {
 
     setSaving(true);
     try {
+      // El vínculo con empleada solo aplica al rol Lector
+      const employeeId = form.role === 'lector' ? (form.employee_id || null) : null;
       if (editing) {
-        const payload = { full_name: form.full_name.trim(), role: form.role, departments: form.departments, is_active: form.is_active, email: form.email.trim(), approval_position: form.approval_position || null };
+        const payload = { full_name: form.full_name.trim(), role: form.role, departments: form.departments, is_active: form.is_active, email: form.email.trim(), approval_position: form.approval_position || null, employee_id: employeeId };
         if (form.password) payload.password = form.password;
         if (form.signatureChanged) payload.signature = form.signature || ''; // '' = quitar
         await api.updateUser(editing.id, payload);
@@ -110,7 +115,7 @@ function UsersManager({ notify }) {
           username: form.username.trim(), password: form.password,
           full_name: form.full_name.trim(), role: form.role, departments: form.departments,
           email: form.email.trim(), approval_position: form.approval_position || null,
-          signature: form.signature || null,
+          signature: form.signature || null, employee_id: employeeId,
         });
         notify('Usuario creado');
       }
@@ -155,6 +160,12 @@ function UsersManager({ notify }) {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{u.full_name}</Text>
                   <Text style={styles.cardMeta}>@{u.username}{!u.is_active ? ' · inactivo' : ''}</Text>
+                  {!!u.employee_name && (
+                    <View style={styles.linkTag}>
+                      <Ionicons name="calendar" size={11} color={COLORS.primary} />
+                      <Text style={styles.linkTagText} numberOfLines={1}>Mi Horario: {u.employee_name}</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={[styles.roleBadge, { backgroundColor: (ACCESS_ROLE_COLOR[u.role] || COLORS.primary) + '20' }]}>
                   <Text style={[styles.roleBadgeText, { color: ACCESS_ROLE_COLOR[u.role] || COLORS.primary }]}>{ACCESS_ROLE_LABELS[u.role] || u.role}</Text>
@@ -237,6 +248,17 @@ function UsersManager({ notify }) {
               mode="outlined" autoCapitalize="none" keyboardType="email-address" style={styles.input}
             />
 
+            {form.role === 'lector' && (
+              <EmployeeLinker
+                employees={employees}
+                departments={form.departments}
+                value={form.employee_id}
+                query={empQuery}
+                setQuery={setEmpQuery}
+                onSelect={(id) => setForm(f => ({ ...f, employee_id: id }))}
+              />
+            )}
+
             <Text style={styles.label}>Posición en el flujo de firmas</Text>
             <Text style={styles.help}>Define en qué nivel firma el rol de turno (opcional).</Text>
             <View style={styles.chipWrap}>
@@ -288,6 +310,71 @@ function UsersManager({ notify }) {
         </Modal>
       </Portal>
     </>
+  );
+}
+
+/* ---------------------- VÍNCULO USUARIO ↔ EMPLEADA ---------------------- */
+// Permite que una cuenta de Lector vea SOLO el horario de la empleada elegida.
+
+function EmployeeLinker({ employees, departments, value, query, setQuery, onSelect }) {
+  const deptSet = new Set(departments || []);
+  const q = query.trim().toLowerCase();
+  const pool = employees.filter(e => deptSet.size === 0 || deptSet.has(e.department_id));
+  const filtered = pool.filter(e =>
+    !q || (e.name || '').toLowerCase().includes(q) || (e.clave || '').toLowerCase().includes(q)
+  );
+  const selected = employees.find(e => e.id === value);
+  const shown = filtered.slice(0, 25);
+
+  return (
+    <View style={styles.linkBox}>
+      <Text style={styles.label}>Vincular a empleada</Text>
+      <Text style={styles.help}>
+        La empleada entrará con este usuario y verá únicamente su propio horario (calendario).
+        {departments.length === 0 ? ' Primero asigna al menos un área.' : ''}
+      </Text>
+
+      {selected && (
+        <View style={styles.linkSelected}>
+          <Ionicons name="link" size={16} color={COLORS.success} />
+          <Text style={styles.linkSelectedText} numberOfLines={1}>Vinculada a: {selected.name}</Text>
+          <TouchableOpacity onPress={() => onSelect(null)}>
+            <Ionicons name="close-circle" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {departments.length > 0 && (
+        <>
+          <TextInput
+            label="Buscar empleada por nombre o clave"
+            value={query} onChangeText={setQuery}
+            mode="outlined" dense style={styles.input}
+            left={<TextInput.Icon icon="magnify" />}
+          />
+          <View style={styles.empList}>
+            {shown.length === 0 ? (
+              <Text style={styles.empEmpty}>No hay empleadas que coincidan en las áreas asignadas.</Text>
+            ) : shown.map(e => {
+              const isSel = e.id === value;
+              return (
+                <TouchableOpacity key={e.id} onPress={() => onSelect(isSel ? null : e.id)} activeOpacity={0.7}
+                  style={[styles.empRow, isSel && styles.empRowSel]}>
+                  <Ionicons name={isSel ? 'radio-button-on' : 'radio-button-off'} size={18} color={isSel ? COLORS.primary : COLORS.textLight} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.empName} numberOfLines={1}>{e.name}</Text>
+                    <Text style={styles.empMeta} numberOfLines={1}>{e.clave ? `Clave ${e.clave} · ` : ''}{e.department_name}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            {filtered.length > shown.length && (
+              <Text style={styles.empEmpty}>… y {filtered.length - shown.length} más. Afina la búsqueda.</Text>
+            )}
+          </View>
+        </>
+      )}
+    </View>
   );
 }
 
@@ -616,4 +703,17 @@ const styles = StyleSheet.create({
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
   colorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: 'transparent' },
   colorDotActive: { borderColor: COLORS.text },
+
+  // Vínculo usuario ↔ empleada
+  linkBox: { backgroundColor: '#F7F9FC', borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
+  linkSelected: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E8F5E9', borderRadius: 10, padding: 8, marginBottom: 8 },
+  linkSelectedText: { flex: 1, fontSize: 13, fontWeight: '700', color: COLORS.success },
+  empList: { gap: 4 },
+  empRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 8 },
+  empRowSel: { backgroundColor: COLORS.primary + '12' },
+  empName: { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  empMeta: { fontSize: 11, color: COLORS.textLight, marginTop: 1 },
+  empEmpty: { fontSize: 12, color: COLORS.textLight, fontStyle: 'italic', paddingVertical: 6, textAlign: 'center' },
+  linkTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, alignSelf: 'flex-start', backgroundColor: COLORS.primary + '12', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  linkTagText: { fontSize: 10, fontWeight: '700', color: COLORS.primary, maxWidth: 150 },
 });

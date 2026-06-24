@@ -12,6 +12,12 @@ function normPosition(pos) {
   return POSITIONS.includes(pos) ? pos : null;
 }
 
+// Normaliza el vínculo con empleada: '' / 0 / inválido → null
+function normEmployeeId(v) {
+  const n = parseInt(v, 10);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 // Reemplaza las áreas asignadas a un usuario
 async function setUserDepartments(db, userId, departmentIds) {
   await db.run('DELETE FROM user_departments WHERE user_id = ?', userId);
@@ -35,9 +41,12 @@ router.get('/', async (req, res, next) => {
   try {
     const db = await getDb();
     const users = await db.all(
-      `SELECT id, username, full_name, role, email, approval_position, is_active, created_at,
-              (signature IS NOT NULL) AS has_signature
-       FROM users ORDER BY role, full_name`
+      `SELECT u.id, u.username, u.full_name, u.role, u.email, u.approval_position, u.is_active, u.created_at,
+              u.employee_id, e.name AS employee_name,
+              (u.signature IS NOT NULL) AS has_signature
+       FROM users u
+       LEFT JOIN employees e ON e.id = u.employee_id
+       ORDER BY u.role, u.full_name`
     );
     for (const u of users) u.departments = await getUserDepartments(db, u.id);
     res.json(users);
@@ -57,7 +66,7 @@ router.get('/:id/signature', async (req, res, next) => {
 // POST /api/users  { username, password, full_name, role, departments: [ids] }
 router.post('/', async (req, res, next) => {
   try {
-    const { username, password, full_name, role, departments, email, approval_position, signature } = req.body;
+    const { username, password, full_name, role, departments, email, approval_position, signature, employee_id } = req.body;
     if (!username || !password || !full_name || !role) {
       return res.status(400).json({ error: 'username, password, full_name y role son requeridos' });
     }
@@ -69,10 +78,16 @@ router.post('/', async (req, res, next) => {
     const exists = await db.get('SELECT id FROM users WHERE username = ?', username);
     if (exists) return res.status(409).json({ error: 'Ese nombre de usuario ya existe' });
 
+    const empId = normEmployeeId(employee_id);
+    if (empId) {
+      const emp = await db.get('SELECT id FROM employees WHERE id = ? AND is_active = 1', empId);
+      if (!emp) return res.status(400).json({ error: 'La empleada vinculada no existe.' });
+    }
+
     const hash = await bcrypt.hash(password, 10);
     const r = await db.run(
-      'INSERT INTO users (username, password_hash, full_name, role, email, approval_position, signature) VALUES (?,?,?,?,?,?,?)',
-      [username, hash, full_name, role, email || null, normPosition(approval_position), signature || null]
+      'INSERT INTO users (username, password_hash, full_name, role, email, approval_position, signature, employee_id) VALUES (?,?,?,?,?,?,?,?)',
+      [username, hash, full_name, role, email || null, normPosition(approval_position), signature || null, empId]
     );
     // El admin ve todo, no necesita asignación de áreas
     if (role !== 'admin') await setUserDepartments(db, r.lastID, departments);
@@ -84,7 +99,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/users/:id  → editar datos, rol, áreas y (opcional) contraseña
 router.put('/:id', async (req, res, next) => {
   try {
-    const { full_name, role, departments, is_active, password, email, approval_position, signature } = req.body;
+    const { full_name, role, departments, is_active, password, email, approval_position, signature, employee_id } = req.body;
     if (role && !VALID_ROLES.includes(role)) {
       return res.status(400).json({ error: `Rol inválido. Debe ser uno de: ${VALID_ROLES.join(', ')}` });
     }
@@ -99,6 +114,15 @@ router.put('/:id', async (req, res, next) => {
     const newEmail = email !== undefined ? (email || null) : user.email;
     const newPosition = approval_position !== undefined ? normPosition(approval_position) : user.approval_position;
 
+    let newEmployeeId = user.employee_id;
+    if (employee_id !== undefined) {
+      newEmployeeId = normEmployeeId(employee_id);
+      if (newEmployeeId) {
+        const emp = await db.get('SELECT id FROM employees WHERE id = ? AND is_active = 1', newEmployeeId);
+        if (!emp) return res.status(400).json({ error: 'La empleada vinculada no existe.' });
+      }
+    }
+
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [hash, user.id]);
@@ -109,8 +133,8 @@ router.put('/:id', async (req, res, next) => {
     }
 
     await db.run(
-      'UPDATE users SET full_name = ?, role = ?, is_active = ?, email = ?, approval_position = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [newName, newRole, newActive, newEmail, newPosition, user.id]
+      'UPDATE users SET full_name = ?, role = ?, is_active = ?, email = ?, approval_position = ?, employee_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newName, newRole, newActive, newEmail, newPosition, newEmployeeId, user.id]
     );
 
     if (newRole === 'admin') await db.run('DELETE FROM user_departments WHERE user_id = ?', user.id);

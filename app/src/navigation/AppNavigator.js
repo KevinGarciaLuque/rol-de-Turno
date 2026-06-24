@@ -13,6 +13,7 @@ import EmployeesScreen  from '../screens/EmployeesScreen';
 import ReportsScreen    from '../screens/ReportsScreen';
 import LoginScreen      from '../screens/LoginScreen';
 import AdminScreen      from '../screens/AdminScreen';
+import MyScheduleScreen from '../screens/MyScheduleScreen';
 import NotificationBell from '../components/NotificationBell';
 
 const Tab   = createBottomTabNavigator();
@@ -118,8 +119,19 @@ function DepartmentSelect({ navigation }) {
   );
 }
 
+// Vista exclusiva para empleadas vinculadas: solo su propio horario.
+function EmployeeNavigator() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: COLORS.header }, headerTintColor: '#fff', headerTitleStyle: { fontWeight: '700' }, headerRight: () => <HeaderLogout /> }}>
+        <Stack.Screen name="MySchedule" component={MyScheduleScreen} options={{ title: 'Mi Horario' }} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
 export default function AppNavigator() {
-  const { isAuthenticated, loading, isAdmin } = useAuth();
+  const { isAuthenticated, loading, isAdmin, isEmployee } = useAuth();
 
   if (loading) {
     return (
@@ -138,6 +150,9 @@ export default function AppNavigator() {
       </NavigationContainer>
     );
   }
+
+  // Empleada (cuenta de solo-lectura vinculada a su registro): ve únicamente "Mi Horario".
+  if (isEmployee) return <EmployeeNavigator />;
 
   return (
     <NavigationContainer>

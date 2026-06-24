@@ -58,6 +58,9 @@ export function AuthProvider({ children }) {
     role: user?.role || null,
     isAdmin: user?.role === 'admin',
     canEdit: user ? user.role !== 'lector' : false,
+    // Empleada vinculada: cuenta de solo-lectura que ve únicamente su propio horario
+    employee: user?.employee || null,
+    isEmployee: !!user?.employee_id && user?.role === 'lector',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

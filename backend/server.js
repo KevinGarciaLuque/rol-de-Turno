@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const { getDb } = require('./src/database/db');
 const { seed, seedUsers, seedShiftHours } = require('./src/database/seed');
 const authRouter        = require('./src/routes/auth');
+const meRouter          = require('./src/routes/me');
 const usersRouter       = require('./src/routes/users');
 const notificationsRouter = require('./src/routes/notifications');
 const departmentsRouter = require('./src/routes/departments');
@@ -27,6 +28,7 @@ app.use(express.json({ limit: '8mb' })); // permite firmas (imagen/PDF en base64
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 app.use('/api/auth',        authRouter);
+app.use('/api/me',          meRouter);
 app.use('/api/users',       usersRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/departments', departmentsRouter);

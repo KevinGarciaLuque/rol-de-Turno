@@ -59,6 +59,10 @@ export const api = {
   login: (username, password) => client.post('/auth/login', { username, password }).then(r => r.data),
   me:    () => client.get('/auth/me').then(r => r.data),
 
+  // Mi Horario (empleada vinculada: ve solo lo suyo)
+  getMyInfo:     () => client.get('/me').then(r => r.data),
+  getMySchedule: (year, month) => client.get(`/me/schedule/${year}/${month}`).then(r => r.data),
+
   // Users (solo Admin)
   getUsers:   () => client.get('/users').then(r => r.data),
   createUser: (data) => client.post('/users', data).then(r => r.data),

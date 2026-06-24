@@ -10,6 +10,18 @@ async function getUserDepartments(db, userId) {
   return rows.map(r => r.department_id);
 }
 
+// Si la cuenta está vinculada a una empleada, devuelve sus datos básicos (para la vista "Mi Horario")
+async function getLinkedEmployee(db, employeeId) {
+  if (!employeeId) return null;
+  const e = await db.get(
+    `SELECT e.id, e.name, e.clave, e.category, e.role, e.department_id, d.name AS department_name
+     FROM employees e JOIN departments d ON d.id = e.department_id
+     WHERE e.id = ? AND e.is_active = 1`,
+    employeeId
+  );
+  return e || null;
+}
+
 // POST /api/auth/login  { username, password }
 router.post('/login', async (req, res, next) => {
   try {
@@ -26,11 +38,15 @@ router.post('/login', async (req, res, next) => {
     if (!ok) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
 
     const departments = await getUserDepartments(db, user.id);
+    const employee = await getLinkedEmployee(db, user.employee_id);
     const token = signToken(user);
 
     res.json({
       token,
-      user: { id: user.id, username: user.username, full_name: user.full_name, role: user.role, departments },
+      user: {
+        id: user.id, username: user.username, full_name: user.full_name, role: user.role,
+        departments, employee_id: user.employee_id || null, employee,
+      },
     });
   } catch (e) { next(e); }
 });
@@ -39,11 +55,12 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', authenticate, async (req, res, next) => {
   try {
     const db = await getDb();
-    const user = await db.get('SELECT id, username, full_name, role, is_active FROM users WHERE id = ?', req.user.id);
+    const user = await db.get('SELECT id, username, full_name, role, is_active, employee_id FROM users WHERE id = ?', req.user.id);
     if (!user || !user.is_active) return res.status(401).json({ error: 'Sesión inválida' });
 
     const departments = await getUserDepartments(db, user.id);
-    res.json({ user: { ...user, departments } });
+    const employee = await getLinkedEmployee(db, user.employee_id);
+    res.json({ user: { ...user, departments, employee } });
   } catch (e) { next(e); }
 });
 
