@@ -19,11 +19,25 @@ async function ensureCanManage(req, res, db, departmentId) {
   return true;
 }
 
+// Cuenta de acceso vinculada a la empleada (una sola, la activa o la más antigua).
+// Se expone como resumen para precargar la sección "Acceso al sistema" de la ficha.
+const ACCOUNT_FIELDS = `
+  u.id AS account_user_id, u.username AS account_username, u.role AS account_role,
+  u.is_active AS account_is_active, u.approval_position AS account_approval_position`;
+const ACCOUNT_JOIN = `
+  LEFT JOIN users u ON u.id = (
+    SELECT id FROM users WHERE employee_id = e.id ORDER BY is_active DESC, id ASC LIMIT 1
+  )`;
+
 router.get('/', async (req, res, next) => {
   try {
     const db = await getDb();
     const { department_id, category } = req.query;
-    let query = `SELECT e.*, d.name as department_name FROM employees e JOIN departments d ON d.id=e.department_id WHERE e.is_active=1`;
+    let query = `SELECT e.*, d.name as department_name, ${ACCOUNT_FIELDS}
+      FROM employees e
+      JOIN departments d ON d.id=e.department_id
+      ${ACCOUNT_JOIN}
+      WHERE e.is_active=1`;
     const params = [];
     if (department_id) { query += ' AND e.department_id=?'; params.push(department_id); }
     if (category)      { query += ' AND e.category=?';      params.push(category); }
@@ -35,7 +49,11 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const db = await getDb();
-    const row = await db.get(`SELECT e.*, d.name as department_name FROM employees e JOIN departments d ON d.id=e.department_id WHERE e.id=?`, req.params.id);
+    const row = await db.get(`SELECT e.*, d.name as department_name, ${ACCOUNT_FIELDS}
+      FROM employees e
+      JOIN departments d ON d.id=e.department_id
+      ${ACCOUNT_JOIN}
+      WHERE e.id=?`, req.params.id);
     if (!row) return res.status(404).json({ error: 'Not found' });
     res.json(row);
   } catch (e) { next(e); }

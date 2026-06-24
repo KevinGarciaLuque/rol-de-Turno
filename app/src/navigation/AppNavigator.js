@@ -177,7 +177,10 @@ export default function AppNavigator() {
       >
         <Tab.Screen name="Home"     component={DashboardStack} options={{ title: 'Inicio' }} />
         <Tab.Screen name="Horario"  component={ScheduleStack}  options={{ title: 'Horario' }} />
-        <Tab.Screen name="Personal" component={withHeader(EmployeesScreen, 'Personal')}  options={{ title: 'Personal' }} />
+        {/* El admin gestiona al personal dentro de la pestaña Admin; los jefes/supervisores lo ven aquí. */}
+        {!isAdmin && (
+          <Tab.Screen name="Personal" component={withHeader(EmployeesScreen, 'Personal')}  options={{ title: 'Personal' }} />
+        )}
         <Tab.Screen name="Reportes" component={withHeader(ReportsScreen,   'Reportes')}  options={{ title: 'Reportes' }} />
         {isAdmin && (
           <Tab.Screen name="Admin" component={withHeader(AdminScreen, 'Administración')} options={{ title: 'Admin' }} />

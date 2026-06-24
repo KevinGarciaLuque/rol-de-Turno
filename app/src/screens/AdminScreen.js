@@ -8,9 +8,10 @@ import { ACCESS_ROLES, ACCESS_ROLE_LABELS, ACCESS_ROLE_DESC, ACCESS_ROLE_COLOR, 
 import { pickSignature } from '../utils/pickSignature';
 import { useAuth } from '../context/AuthContext';
 import { useShifts } from '../context/ShiftsContext';
+import EmployeesScreen from './EmployeesScreen';
 
 export default function AdminScreen() {
-  const [tab, setTab] = useState('users');
+  const [tab, setTab] = useState('staff');
   const [snack, setSnack] = useState('');
 
   return (
@@ -21,14 +22,17 @@ export default function AdminScreen() {
           value={tab}
           onValueChange={setTab}
           buttons={[
-            { value: 'users', label: 'Usuarios', icon: 'account-group' },
+            { value: 'staff', label: 'Personal', icon: 'account-multiple' },
+            { value: 'users', label: 'Usuarios', icon: 'account-key' },
             { value: 'departments', label: 'Áreas', icon: 'hospital-building' },
             { value: 'shifts', label: 'Turnos', icon: 'clock-outline' },
           ]}
         />
       </View>
 
-      {tab === 'users'
+      {tab === 'staff'
+        ? <EmployeesScreen />
+        : tab === 'users'
         ? <UsersManager notify={setSnack} />
         : tab === 'departments'
         ? <DepartmentsManager notify={setSnack} />

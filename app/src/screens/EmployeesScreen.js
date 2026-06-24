@@ -4,15 +4,55 @@ import { Surface, FAB, Chip, Modal, Portal, TextInput as PaperInput, Button, Sna
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { CATEGORY_LABELS, CATEGORY_COLOR, ROLE_LABELS } from '../constants/shifts';
+import { ACCESS_ROLE_LABELS, ACCESS_ROLE_COLOR, APPROVAL_POSITIONS, APPROVAL_POSITION_LABELS } from '../constants/roles';
 import { COLORS } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
 const CATEGORY_KEYS = ['licenciada', 'auxiliar', 'servicio_social', 'hd_profesional', 'hd_auxiliar'];
 const ROLE_KEYS = ['rotativa', 'jefe_sala', 'servicio_social'];
-const emptyForm = { department_id: null, name: '', clave: '', category: 'auxiliar', role: 'rotativa', observations: '' };
+
+// Niveles de acceso que se pueden asignar desde la ficha del empleado.
+// 'none' = sin cuenta. El resto corresponde a users.role.
+const ACCESS_OPTIONS = [
+  { value: 'none',       label: 'Sin cuenta',          desc: 'Solo aparece en el rol, no entra al sistema' },
+  { value: 'lector',     label: 'Lector',              desc: 'Entra y ve únicamente su propio horario' },
+  { value: 'jefe',       label: ACCESS_ROLE_LABELS.jefe,       desc: 'Gestiona y firma su propia sala' },
+  { value: 'supervisor', label: ACCESS_ROLE_LABELS.supervisor, desc: 'Gestiona y edita su área' },
+  { value: 'admin',      label: ACCESS_ROLE_LABELS.admin,      desc: 'Acceso total al sistema' },
+];
+const ACCESS_NEEDS_POSITION = ['jefe', 'supervisor']; // pueden firmar el rol
+// Nivel de firma sugerido automáticamente según el rol de acceso (editable después).
+const ACCESS_DEFAULT_POSITION = { jefe: 'jefe_area', supervisor: 'jefe_servicio' };
+
+const emptyForm = {
+  department_id: null, name: '', clave: '', category: 'auxiliar', role: 'rotativa', observations: '',
+  // Acceso al sistema (solo admin)
+  access: 'none', username: '', password: '', accountUserId: null, approval_position: '',
+};
+
+// Quita acentos para sugerir un nombre de usuario limpio
+const DIACRITICS = new RegExp('[\\u0300-\\u036f]', 'g');
+function stripAccents(s) {
+  return (s || '').normalize('NFD').replace(DIACRITICS, '');
+}
+// Sugiere usuario a partir de la clave (preferido) o del nombre
+function suggestUsername(name, clave) {
+  if (clave && clave.trim()) return clave.trim().toLowerCase().replace(/\s+/g, '');
+  const parts = stripAccents(name).toLowerCase().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]}.${parts[parts.length - 1]}`;
+}
+// Contraseña temporal legible (sin caracteres ambiguos)
+function tempPassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+  let p = '';
+  for (let i = 0; i < 8; i++) p += chars[Math.floor(Math.random() * chars.length)];
+  return p;
+}
 
 export default function EmployeesScreen() {
-  const { canEdit } = useAuth();
+  const { canEdit, isAdmin } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -53,6 +93,8 @@ export default function EmployeesScreen() {
   function openEdit(emp) {
     setSelected(null);
     setEditingEmp(emp);
+    // Estado de la cuenta de acceso vinculada (si existe y está activa)
+    const hasActiveAccount = !!emp.account_user_id && !!emp.account_is_active;
     setForm({
       department_id: emp.department_id,
       name: emp.name,
@@ -60,14 +102,44 @@ export default function EmployeesScreen() {
       category: emp.category,
       role: emp.role || 'rotativa',
       observations: emp.observations || '',
+      access: hasActiveAccount ? emp.account_role : 'none',
+      username: emp.account_username || '',
+      password: '',
+      accountUserId: emp.account_user_id || null,
+      approval_position: emp.account_approval_position || '',
     });
     setFormVisible(true);
+  }
+
+  // Al elegir un nivel de acceso, sugiere usuario/contraseña si la cuenta es nueva
+  // y propone automáticamente su nivel de firma (se puede cambiar luego).
+  function setAccess(access) {
+    setForm(f => {
+      const next = { ...f, access };
+      if (access !== 'none' && !f.accountUserId) {
+        if (!f.username) next.username = suggestUsername(f.name, f.clave);
+        if (!f.password) next.password = tempPassword();
+      }
+      // Sugerencia de firma: solo si el rol firma y aún no hay una posición elegida.
+      if (ACCESS_NEEDS_POSITION.includes(access) && !f.approval_position) {
+        next.approval_position = ACCESS_DEFAULT_POSITION[access] || '';
+      }
+      return next;
+    });
   }
 
   async function save() {
     if (!form.department_id) return setSnack('Selecciona un área');
     if (!form.name.trim())   return setSnack('El nombre es obligatorio');
     if (!form.category)      return setSnack('Selecciona una categoría');
+
+    // Validación de la cuenta de acceso (solo admin)
+    const managingAccount = isAdmin && form.access !== 'none';
+    if (managingAccount) {
+      if (!form.username.trim()) return setSnack('Escribe un nombre de usuario para la cuenta');
+      if (!form.accountUserId && !form.password) return setSnack('Asigna una contraseña a la cuenta');
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -78,13 +150,43 @@ export default function EmployeesScreen() {
         role: form.role,
         observations: form.observations.trim() || null,
       };
+
+      // 1) Guardar la empleada (y obtener su id si es nueva)
+      let empId = editingEmp?.id;
       if (editingEmp) {
         await api.updateEmployee(editingEmp.id, { ...payload, is_active: 1 });
-        setSnack('Empleada actualizada');
       } else {
-        await api.createEmployee(payload);
-        setSnack('Empleada agregada');
+        const r = await api.createEmployee(payload);
+        empId = r.id;
       }
+
+      // 2) Gestionar la cuenta de acceso (solo admin)
+      if (isAdmin) {
+        const departments = form.access === 'admin' ? [] : [form.department_id];
+        const approval_position = ACCESS_NEEDS_POSITION.includes(form.access) ? (form.approval_position || null) : null;
+
+        if (form.access === 'none') {
+          // Si había cuenta, se desactiva (no se borra, conserva historial)
+          if (form.accountUserId) await api.updateUser(form.accountUserId, { is_active: 0 });
+        } else if (form.accountUserId) {
+          // Actualizar la cuenta existente
+          const up = {
+            full_name: form.name.trim(), role: form.access, departments,
+            is_active: 1, employee_id: empId, approval_position,
+          };
+          if (form.password) up.password = form.password;
+          await api.updateUser(form.accountUserId, up);
+        } else {
+          // Crear la cuenta nueva, ya vinculada a la empleada
+          await api.createUser({
+            username: form.username.trim(), password: form.password,
+            full_name: form.name.trim(), role: form.access, departments,
+            employee_id: empId, approval_position,
+          });
+        }
+      }
+
+      setSnack(editingEmp ? 'Empleada actualizada' : 'Empleada agregada');
       setFormVisible(false);
       loadData();
     } catch (e) {
@@ -164,6 +266,12 @@ export default function EmployeesScreen() {
                 <View style={styles.empNameRow}>
                   <Text style={styles.empName}>{emp.name}</Text>
                   {emp.role === 'jefe_sala' && <View style={styles.jefeBadge}><Text style={styles.jefeText}>Jefe</Text></View>}
+                  {emp.account_user_id && !!emp.account_is_active && (
+                    <View style={[styles.acctBadge, { backgroundColor: (ACCESS_ROLE_COLOR[emp.account_role] || COLORS.primary) + '18' }]}>
+                      <Ionicons name="key" size={9} color={ACCESS_ROLE_COLOR[emp.account_role] || COLORS.primary} />
+                      <Text style={[styles.acctText, { color: ACCESS_ROLE_COLOR[emp.account_role] || COLORS.primary }]}>{ACCESS_ROLE_LABELS[emp.account_role] || emp.account_role}</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.empMeta}>
                   {emp.department_name} · Clave: {emp.clave || 'N/A'}
@@ -208,6 +316,10 @@ export default function EmployeesScreen() {
                 <InfoRow icon="id-card-outline" label="Clave"      value={selected.clave || 'N/A'} />
                 <InfoRow icon="briefcase-outline" label="Categoría" value={CATEGORY_LABELS[selected.category] || selected.category} />
                 <InfoRow icon="star-outline"     label="Rol"        value={ROLE_LABELS[selected.role] || selected.role} />
+                {selected.account_user_id && !!selected.account_is_active && (
+                  <InfoRow icon="key-outline" label="Acceso al sistema"
+                    value={`@${selected.account_username} · ${ACCESS_ROLE_LABELS[selected.account_role] || selected.account_role}`} />
+                )}
                 {selected.observations && (
                   <InfoRow icon="document-text-outline" label="Observaciones" value={selected.observations} multiline />
                 )}
@@ -266,6 +378,72 @@ export default function EmployeesScreen() {
             </View>
 
             <PaperInput label="Observaciones (opcional)" value={form.observations} onChangeText={v => setForm(f => ({ ...f, observations: v }))} mode="outlined" multiline numberOfLines={2} style={styles.input} />
+
+            {/* ------- Acceso al sistema (solo admin) ------- */}
+            {isAdmin && (
+              <View style={styles.accessBox}>
+                <View style={styles.accessHeader}>
+                  <Ionicons name="key" size={16} color={COLORS.primary} />
+                  <Text style={styles.accessTitle}>Acceso al sistema</Text>
+                </View>
+                <Text style={styles.accessHelp}>
+                  Define si esta persona entra al sistema y con qué nivel. La cuenta queda vinculada a ella y se asigna su área automáticamente.
+                </Text>
+
+                <View style={styles.chipWrap}>
+                  {ACCESS_OPTIONS.map(opt => (
+                    <Chip key={opt.value} selected={form.access === opt.value} onPress={() => setAccess(opt.value)} showSelectedCheck
+                      style={[styles.formChip, form.access === opt.value && opt.value !== 'none' && { backgroundColor: (ACCESS_ROLE_COLOR[opt.value] || COLORS.primary) + '22' }]}>
+                      {opt.label}
+                    </Chip>
+                  ))}
+                </View>
+                <Text style={styles.accessDesc}>{ACCESS_OPTIONS.find(o => o.value === form.access)?.desc}</Text>
+
+                {form.access !== 'none' && (
+                  <>
+                    <PaperInput
+                      label="Nombre de usuario" value={form.username}
+                      onChangeText={v => setForm(f => ({ ...f, username: v.trim() }))}
+                      mode="outlined" autoCapitalize="none" disabled={!!form.accountUserId}
+                      style={styles.input}
+                      right={!form.accountUserId ? <PaperInput.Icon icon="auto-fix" onPress={() => setForm(f => ({ ...f, username: suggestUsername(f.name, f.clave) }))} /> : null}
+                    />
+                    <PaperInput
+                      label={form.accountUserId ? 'Nueva contraseña (opcional)' : 'Contraseña'}
+                      value={form.password} onChangeText={v => setForm(f => ({ ...f, password: v }))}
+                      mode="outlined" autoCapitalize="none" style={styles.input}
+                      placeholder={form.accountUserId ? 'Dejar en blanco para no cambiar' : undefined}
+                      right={<PaperInput.Icon icon="dice-5-outline" onPress={() => setForm(f => ({ ...f, password: tempPassword() }))} />}
+                    />
+                    {!!form.password && (
+                      <Text style={styles.accessPwHint}>Contraseña a entregar: <Text style={styles.accessPwValue}>{form.password}</Text></Text>
+                    )}
+
+                    {ACCESS_NEEDS_POSITION.includes(form.access) && (
+                      <>
+                        <Text style={styles.fieldLabel}>Posición en el flujo de firmas (opcional)</Text>
+                        <View style={styles.chipWrap}>
+                          <Chip selected={!form.approval_position} onPress={() => setForm(f => ({ ...f, approval_position: '' }))} showSelectedCheck style={styles.formChip}>Ninguna</Chip>
+                          {APPROVAL_POSITIONS.map(p => (
+                            <Chip key={p} selected={form.approval_position === p} onPress={() => setForm(f => ({ ...f, approval_position: p }))} showSelectedCheck style={styles.formChip}>
+                              {APPROVAL_POSITION_LABELS[p]}
+                            </Chip>
+                          ))}
+                        </View>
+                      </>
+                    )}
+                  </>
+                )}
+
+                {form.access === 'none' && form.accountUserId && (
+                  <View style={styles.accessWarn}>
+                    <Ionicons name="alert-circle-outline" size={16} color={COLORS.warning} />
+                    <Text style={styles.accessWarnText}>Esta persona tiene una cuenta (@{form.username}). Al guardar con "Sin cuenta" se desactivará su acceso.</Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             <View style={styles.formActions}>
               <View style={{ flex: 1 }} />
@@ -345,4 +523,19 @@ const styles = StyleSheet.create({
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 },
   formChip: { marginBottom: 4 },
   formActions: { flexDirection: 'row', alignItems: 'center', marginTop: 14, gap: 4 },
+
+  // Indicador de cuenta en la tarjeta
+  acctBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  acctText: { fontSize: 10, fontWeight: '700' },
+
+  // Sección "Acceso al sistema"
+  accessBox: { backgroundColor: '#F7F9FC', borderRadius: 12, padding: 12, marginTop: 4, marginBottom: 6, borderWidth: 1, borderColor: COLORS.border },
+  accessHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  accessTitle: { fontSize: 14, fontWeight: '800', color: COLORS.text },
+  accessHelp: { fontSize: 11, color: COLORS.textLight, marginBottom: 10, lineHeight: 15 },
+  accessDesc: { fontSize: 12, color: COLORS.primary, fontWeight: '600', marginTop: -2, marginBottom: 10 },
+  accessPwHint: { fontSize: 12, color: COLORS.textLight, marginTop: -4, marginBottom: 8 },
+  accessPwValue: { fontWeight: '800', color: COLORS.text, letterSpacing: 1 },
+  accessWarn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFF8E1', borderRadius: 10, padding: 10, marginTop: 4 },
+  accessWarnText: { flex: 1, fontSize: 12, color: '#8D6E00' },
 });
