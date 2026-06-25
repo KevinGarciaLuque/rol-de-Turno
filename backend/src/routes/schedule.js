@@ -4,6 +4,7 @@ const { getDb } = require('../database/db');
 const { authenticate, userCanAccessDepartment, requireRole } = require('../middleware/auth');
 const { CHAIN, MAX_LEVEL, stepByLevel, labelForLevel } = require('../config/approval');
 const { notifyUsers } = require('../utils/notify');
+const bitacora = require('../utils/bitacora');
 
 router.use(authenticate);
 
@@ -235,11 +236,27 @@ router.put('/entry', async (req, res, next) => {
     if (!(await canEditNow(db, req.user, department_id, existing))) {
       return res.status(403).json({ error: 'No tienes permiso para editar este rol en este momento.' });
     }
+
+    // Leer valor anterior y datos de contexto para la bitácora
+    const [emp, dept, prevEntry] = await Promise.all([
+      db.get('SELECT name FROM employees WHERE id=?', employee_id),
+      db.get('SELECT name FROM departments WHERE id=?', department_id),
+      existing ? db.get('SELECT shift_code FROM schedule_entries WHERE schedule_month_id=? AND employee_id=? AND day=?', [existing.id, employee_id, day]) : null,
+    ]);
+
     const sm = await getOrCreateScheduleMonth(db, department_id, year, month);
     await db.run(`
       INSERT INTO schedule_entries (schedule_month_id,employee_id,day,shift_code) VALUES (?,?,?,?)
       ON DUPLICATE KEY UPDATE shift_code=VALUES(shift_code), updated_at=CURRENT_TIMESTAMP
     `, [sm.id, employee_id, day, shift_code]);
+
+    await bitacora.log(db, req.user, 'edit_shift', 'schedule_entry', sm.id, {
+      department_id: Number(department_id), department_name: dept?.name || '',
+      year: Number(year), month: Number(month), day: Number(day),
+      employee_id: Number(employee_id), employee_name: emp?.name || '',
+      old: prevEntry?.shift_code || null, new: shift_code,
+    });
+
     res.json({ success: true });
   } catch (e) { next(e); }
 });
@@ -357,6 +374,12 @@ router.post('/:scheduleMonthId/reopen', async (req, res, next) => {
       'INSERT INTO schedule_approvals (schedule_month_id, level, position, user_id, user_name, action, note) VALUES (?,?,?,?,?,?,?)',
       [sm.id, 0, 'admin', req.user.id, req.user.full_name, 'reopen', 'Rol reabierto para edición']
     );
+    const dept = await db.get('SELECT name FROM departments WHERE id=?', sm.department_id);
+    await bitacora.log(db, req.user, 'reopen_schedule', 'schedule_month', sm.id, {
+      schedule_month_id: sm.id,
+      department_id: sm.department_id, department_name: dept?.name || '',
+      year: sm.year, month: sm.month,
+    });
     res.json({ success: true });
   } catch (e) { next(e); }
 });
@@ -387,6 +410,11 @@ router.put('/bulk-entries', async (req, res, next) => {
       );
       count++;
     }
+    const dept = await db.get('SELECT name FROM departments WHERE id=?', department_id);
+    await bitacora.log(db, req.user, 'bulk_edit', 'schedule_month', sm.id, {
+      department_id: Number(department_id), department_name: dept?.name || '',
+      year: Number(year), month: Number(month), count,
+    });
     res.json({ success: true, count });
   } catch (e) { next(e); }
 });
@@ -423,6 +451,12 @@ router.post('/copy-previous', async (req, res, next) => {
       );
       copied++;
     }
+    const dept = await db.get('SELECT name FROM departments WHERE id=?', department_id);
+    await bitacora.log(db, req.user, 'copy_month', 'schedule_month', sm.id, {
+      department_id: Number(department_id), department_name: dept?.name || '',
+      year: Number(year), month: Number(month), copied,
+      source_year: prevYear, source_month: prevMonth,
+    });
     res.json({ success: true, copied });
   } catch (e) { next(e); }
 });
@@ -495,6 +529,12 @@ router.post('/templates/:id/apply', async (req, res, next) => {
       );
       applied++;
     }
+    const dept = await db.get('SELECT name FROM departments WHERE id=?', department_id);
+    await bitacora.log(db, req.user, 'apply_template', 'schedule_month', sm.id, {
+      department_id: Number(department_id), department_name: dept?.name || '',
+      year: Number(year), month: Number(month),
+      template_id: Number(req.params.id), template_name: tpl.name, applied,
+    });
     res.json({ success: true, applied });
   } catch (e) { next(e); }
 });

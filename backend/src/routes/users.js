@@ -4,6 +4,7 @@ const router = express.Router();
 const { getDb } = require('../database/db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { POSITIONS } = require('../config/approval');
+const bitacora = require('../utils/bitacora');
 
 const VALID_ROLES = ['admin', 'supervisor', 'jefe', 'lector'];
 
@@ -92,6 +93,10 @@ router.post('/', async (req, res, next) => {
     // El admin ve todo, no necesita asignación de áreas
     if (role !== 'admin') await setUserDepartments(db, r.lastID, departments);
 
+    await bitacora.log(db, req.user, 'create_user', 'user', r.lastID, {
+      target_id: r.lastID, target_username: username, target_name: full_name, role,
+    });
+
     res.status(201).json({ id: r.lastID, username, full_name, role });
   } catch (e) { next(e); }
 });
@@ -140,6 +145,17 @@ router.put('/:id', async (req, res, next) => {
     if (newRole === 'admin') await db.run('DELETE FROM user_departments WHERE user_id = ?', user.id);
     else if (departments !== undefined) await setUserDepartments(db, user.id, departments);
 
+    const changes = [];
+    if (newRole !== user.role) changes.push(`rol: ${user.role} → ${newRole}`);
+    if (newName !== user.full_name) changes.push('nombre cambiado');
+    if (newActive !== user.is_active) changes.push(newActive ? 'reactivado' : 'desactivado');
+    if (password) changes.push('contraseña cambiada');
+    if (departments !== undefined) changes.push('áreas cambiadas');
+    if (newPosition !== user.approval_position) changes.push(`posición: ${newPosition || 'ninguna'}`);
+    await bitacora.log(db, req.user, 'update_user', 'user', user.id, {
+      target_id: user.id, target_username: user.username, target_name: user.full_name, changes,
+    });
+
     res.json({ success: true });
   } catch (e) { next(e); }
 });
@@ -151,7 +167,11 @@ router.delete('/:id', async (req, res, next) => {
     if (parseInt(req.params.id) === req.user.id) {
       return res.status(400).json({ error: 'No puedes desactivar tu propio usuario' });
     }
+    const target = await db.get('SELECT id, username, full_name FROM users WHERE id = ?', req.params.id);
     await db.run('UPDATE users SET is_active = 0 WHERE id = ?', req.params.id);
+    await bitacora.log(db, req.user, 'deactivate_user', 'user', target?.id, {
+      target_id: target?.id, target_username: target?.username, target_name: target?.full_name,
+    });
     res.json({ success: true });
   } catch (e) { next(e); }
 });

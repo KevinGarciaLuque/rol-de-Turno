@@ -26,6 +26,7 @@ export default function AdminScreen() {
             { value: 'users', label: 'Usuarios', icon: 'account-key' },
             { value: 'departments', label: 'Áreas', icon: 'hospital-building' },
             { value: 'shifts', label: 'Turnos', icon: 'clock-outline' },
+            { value: 'bitacora', label: 'Bitácora', icon: 'history' },
           ]}
         />
       </View>
@@ -36,7 +37,9 @@ export default function AdminScreen() {
         ? <UsersManager notify={setSnack} />
         : tab === 'departments'
         ? <DepartmentsManager notify={setSnack} />
-        : <ShiftTypesManager notify={setSnack} />}
+        : tab === 'shifts'
+        ? <ShiftTypesManager notify={setSnack} />
+        : <BitacoraManager />}
 
       <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={2500}>{snack}</Snackbar>
       </View>
@@ -263,8 +266,8 @@ function UsersManager({ notify }) {
               />
             )}
 
-            <Text style={styles.label}>Posición en el flujo de firmas</Text>
-            <Text style={styles.help}>Define en qué nivel firma el rol de turno (opcional).</Text>
+            <Text style={styles.label}>¿Dónde firma este usuario?</Text>
+            <Text style={styles.help}>Elige el nivel de la cadena de aprobación donde este usuario estampa su firma (opcional).</Text>
             <View style={styles.chipWrap}>
               <Chip selected={!form.approval_position} onPress={() => setForm(f => ({ ...f, approval_position: '' }))} showSelectedCheck style={styles.deptChip}>Ninguna</Chip>
               {APPROVAL_POSITIONS.map(p => (
@@ -642,6 +645,147 @@ function ShiftTypesManager({ notify }) {
   );
 }
 
+/* ----------------------------- BITÁCORA ----------------------------- */
+
+const ACTION_META = {
+  edit_shift:      { icon: 'pencil',                color: '#1565C0', label: 'Turno editado' },
+  bulk_edit:       { icon: 'table-edit',            color: '#6A1B9A', label: 'Edición masiva' },
+  copy_month:      { icon: 'content-copy',          color: '#00838F', label: 'Mes copiado' },
+  apply_template:  { icon: 'clipboard-arrow-down-outline', color: '#E65100', label: 'Plantilla aplicada' },
+  create_user:     { icon: 'account-plus',          color: '#2E7D32', label: 'Usuario creado' },
+  update_user:     { icon: 'account-edit',          color: '#F57F17', label: 'Usuario editado' },
+  deactivate_user: { icon: 'account-off',           color: '#B71C1C', label: 'Usuario desactivado' },
+  reopen_schedule: { icon: 'lock-open-variant',     color: '#AD1457', label: 'Rol reabierto' },
+};
+
+const FILTER_GROUPS = [
+  { key: '', label: 'Todos' },
+  { key: 'edit_shift', label: 'Turnos' },
+  { key: 'bulk_edit', label: 'Masivo' },
+  { key: 'create_user', label: 'Usuarios' },
+  { key: 'reopen_schedule', label: 'Reaperturas' },
+];
+
+const MONTHS_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return `${d.getDate()} ${MONTHS_ES[d.getMonth()]} ${d.getFullYear()}  ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function describeEntry(entry) {
+  const d = entry.detail || {};
+  switch (entry.action) {
+    case 'edit_shift': {
+      const oldV = d.old || '(sin asignar)';
+      return `${d.employee_name || 'Empleada'} · Día ${d.day}: ${oldV} → ${d.new}  ·  ${d.department_name} ${d.month}/${d.year}`;
+    }
+    case 'bulk_edit':
+      return `${d.count} celdas editadas en ${d.department_name} ${d.month}/${d.year}`;
+    case 'copy_month':
+      return `${d.department_name} ${d.source_month}/${d.source_year} → ${d.month}/${d.year} (${d.copied} entradas)`;
+    case 'apply_template':
+      return `Plantilla "${d.template_name}" → ${d.department_name} ${d.month}/${d.year} (${d.applied} entradas)`;
+    case 'create_user':
+      return `${d.target_name} (@${d.target_username}) · ${d.role}`;
+    case 'update_user': {
+      const changes = d.changes?.length ? d.changes.join(', ') : 'sin cambios detectados';
+      return `${d.target_name} (@${d.target_username}) · ${changes}`;
+    }
+    case 'deactivate_user':
+      return `${d.target_name} (@${d.target_username})`;
+    case 'reopen_schedule':
+      return `${d.department_name} ${d.month}/${d.year}`;
+    default:
+      return entry.action;
+  }
+}
+
+function BitacoraManager() {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [filter, setFilter] = useState('');
+  const LIMIT = 50;
+
+  const load = useCallback(async (actionFilter, offset = 0, append = false) => {
+    if (offset === 0) setLoading(true); else setLoadingMore(true);
+    try {
+      const params = { limit: LIMIT, offset };
+      if (actionFilter) params.action = actionFilter;
+      const data = await api.getBitacora(params);
+      setTotal(data.total);
+      setRows(prev => append ? [...prev, ...data.rows] : data.rows);
+    } catch (e) {
+      // silencioso — la tabla puede no existir aún en local
+    } finally {
+      setLoading(false); setLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => { load(filter); }, [load, filter]);
+
+  const onFilterChange = (key) => {
+    // Si el grupo es 'edit_shift' queremos también bulk/copy/template
+    setFilter(key);
+  };
+
+  const loadMore = () => load(filter, rows.length, true);
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Filtros */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bitFilterBar} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 8 }}>
+        {FILTER_GROUPS.map(g => (
+          <TouchableOpacity key={g.key} onPress={() => onFilterChange(g.key)}
+            style={[styles.bitFilterChip, filter === g.key && styles.bitFilterChipActive]}>
+            <Text style={[styles.bitFilterChipText, filter === g.key && styles.bitFilterChipTextActive]}>{g.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>
+      ) : rows.length === 0 ? (
+        <View style={styles.center}>
+          <Ionicons name="clipboard-outline" size={48} color={COLORS.textLight} />
+          <Text style={[styles.cardMeta, { marginTop: 12, textAlign: 'center' }]}>Sin registros aún.{'\n'}Las acciones aparecerán aquí en tiempo real.</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.bitList}>
+          {rows.map(entry => {
+            const meta = ACTION_META[entry.action] || { icon: 'information-outline', color: COLORS.textLight, label: entry.action };
+            return (
+              <View key={entry.id} style={styles.bitRow}>
+                <View style={[styles.bitIcon, { backgroundColor: meta.color + '18' }]}>
+                  <Ionicons name={meta.icon} size={18} color={meta.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <View style={[styles.bitBadge, { backgroundColor: meta.color + '22' }]}>
+                      <Text style={[styles.bitBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                    </View>
+                    <Text style={styles.bitUser}>{entry.user_name}</Text>
+                  </View>
+                  <Text style={styles.bitDesc} numberOfLines={2}>{describeEntry(entry)}</Text>
+                  <Text style={styles.bitTime}>{fmtDate(entry.created_at)}</Text>
+                </View>
+              </View>
+            );
+          })}
+          {rows.length < total && (
+            <Button mode="outlined" onPress={loadMore} loading={loadingMore} disabled={loadingMore} style={{ marginTop: 8, alignSelf: 'center' }}>
+              Cargar más ({total - rows.length} restantes)
+            </Button>
+          )}
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 function Centered() {
   return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
 }
@@ -707,6 +851,21 @@ const styles = StyleSheet.create({
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
   colorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: 'transparent' },
   colorDotActive: { borderColor: COLORS.text },
+
+  // Bitácora
+  bitFilterBar: { flexGrow: 0 },
+  bitFilterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  bitFilterChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  bitFilterChipText: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+  bitFilterChipTextActive: { color: '#fff' },
+  bitList: { padding: 12, gap: 8, maxWidth: 860, width: '100%', alignSelf: 'center' },
+  bitRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: COLORS.surface, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: COLORS.border },
+  bitIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  bitBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  bitBadgeText: { fontSize: 10, fontWeight: '800' },
+  bitUser: { fontSize: 12, fontWeight: '700', color: COLORS.textLight },
+  bitDesc: { fontSize: 13, color: COLORS.text, marginTop: 3 },
+  bitTime: { fontSize: 11, color: COLORS.textLight, marginTop: 4 },
 
   // Vínculo usuario ↔ empleada
   linkBox: { backgroundColor: '#F7F9FC', borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },

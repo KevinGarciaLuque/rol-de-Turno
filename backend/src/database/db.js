@@ -146,6 +146,20 @@ const TABLES = [
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`,
 
+  // Bitácora de auditoría (solo admin)
+  `CREATE TABLE IF NOT EXISTS bitacora (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    user_name VARCHAR(255),
+    action VARCHAR(50) NOT NULL,
+    entity VARCHAR(50),
+    entity_id INT NULL,
+    detail TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_bitacora_created (created_at),
+    INDEX idx_bitacora_action (action)
+  )`,
+
   // Plantillas reutilizables de rol mensual
   `CREATE TABLE IF NOT EXISTS schedule_templates (
     id INT AUTO_INCREMENT PRIMARY KEY,

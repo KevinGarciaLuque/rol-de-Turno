@@ -4,7 +4,7 @@ export const ACCESS_ROLES = ['admin', 'supervisor', 'jefe', 'lector'];
 export const ACCESS_ROLE_LABELS = {
   admin:      'Administrador',
   supervisor: 'Supervisor',
-  jefe:       'Jefe de Área',
+  jefe:       'Encargado de Sala',
   lector:     'Lector',
 };
 
@@ -26,11 +26,11 @@ export const ACCESS_ROLE_COLOR = {
 export const APPROVAL_POSITIONS = ['jefe_area', 'jefe_servicio', 'coordinacion', 'subcoordinacion', 'direccion'];
 
 export const APPROVAL_POSITION_LABELS = {
-  jefe_area:       'Jefe de Área',
-  jefe_servicio:   'Jefe de Servicio',
-  coordinacion:    'Coordinación General de Enfermería',
-  subcoordinacion: 'Sub Coordinación General de Enfermería',
-  direccion:       'Dirección de Gestión Clínica',
+  jefe_area:       'Nv.1 · Jefe de Área',
+  jefe_servicio:   'Nv.2 · Jefe de Servicio',
+  coordinacion:    'Nv.3 · Coordinación General de Enfermería',
+  subcoordinacion: 'Nv.4 · Sub Coordinación General de Enfermería',
+  direccion:       'Nv.5 · Dirección de Gestión Clínica',
 };
 
 export const APPROVAL_LEVEL_BY_POSITION = {

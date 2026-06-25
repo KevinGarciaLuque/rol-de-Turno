@@ -115,6 +115,9 @@ export const api = {
   applyTemplate:  (id, data) => client.post(`/schedule/templates/${id}/apply`, data).then(r => r.data),
   deleteTemplate: (id)     => client.delete(`/schedule/templates/${id}`).then(r => r.data),
 
+  // Bitácora (solo admin)
+  getBitacora: (params) => client.get('/bitacora', { params }).then(r => r.data),
+
   // Health
   health: () => client.get('/health').then(r => r.data),
 };

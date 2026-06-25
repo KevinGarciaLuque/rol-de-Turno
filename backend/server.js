@@ -14,6 +14,7 @@ const notificationsRouter = require('./src/routes/notifications');
 const departmentsRouter = require('./src/routes/departments');
 const employeesRouter   = require('./src/routes/employees');
 const scheduleRouter    = require('./src/routes/schedule');
+const bitacoraRouter    = require('./src/routes/bitacora');
 const errorHandler      = require('./src/middleware/errorHandler');
 
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/notifications', notificationsRouter);
 app.use('/api/departments', departmentsRouter);
 app.use('/api/employees',   employeesRouter);
 app.use('/api/schedule',    scheduleRouter);
+app.use('/api/bitacora',    bitacoraRouter);
 app.use(errorHandler);
 
 async function start() {
