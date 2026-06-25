@@ -11,11 +11,11 @@ import { useShifts } from '../context/ShiftsContext';
 import EmployeesScreen from './EmployeesScreen';
 
 const ADMIN_TABS = [
-  { value: 'staff',       label: 'Personal',  icon: 'account-multiple'  },
-  { value: 'users',       label: 'Usuarios',  icon: 'account-key'       },
-  { value: 'departments', label: 'Áreas',     icon: 'hospital-building' },
-  { value: 'shifts',      label: 'Turnos',    icon: 'clock-outline'     },
-  { value: 'bitacora',    label: 'Bitácora',  icon: 'history'           },
+  { value: 'staff',       label: 'Personal',  icon: 'people-outline'       },
+  { value: 'users',       label: 'Usuarios',  icon: 'key-outline'          },
+  { value: 'departments', label: 'Áreas',     icon: 'business-outline'     },
+  { value: 'shifts',      label: 'Turnos',    icon: 'time-outline'         },
+  { value: 'bitacora',    label: 'Bitácora',  icon: 'newspaper-outline'    },
 ];
 
 export default function AdminScreen() {
@@ -655,14 +655,14 @@ function ShiftTypesManager({ notify }) {
 /* ----------------------------- BITÁCORA ----------------------------- */
 
 const ACTION_META = {
-  edit_shift:      { icon: 'pencil',                color: '#1565C0', label: 'Turno editado' },
-  bulk_edit:       { icon: 'table-edit',            color: '#6A1B9A', label: 'Edición masiva' },
-  copy_month:      { icon: 'content-copy',          color: '#00838F', label: 'Mes copiado' },
-  apply_template:  { icon: 'clipboard-arrow-down-outline', color: '#E65100', label: 'Plantilla aplicada' },
-  create_user:     { icon: 'account-plus',          color: '#2E7D32', label: 'Usuario creado' },
-  update_user:     { icon: 'account-edit',          color: '#F57F17', label: 'Usuario editado' },
-  deactivate_user: { icon: 'account-off',           color: '#B71C1C', label: 'Usuario desactivado' },
-  reopen_schedule: { icon: 'lock-open-variant',     color: '#AD1457', label: 'Rol reabierto' },
+  edit_shift:      { icon: 'create-outline',        color: '#1565C0', label: 'Turno editado' },
+  bulk_edit:       { icon: 'grid-outline',          color: '#6A1B9A', label: 'Edición masiva' },
+  copy_month:      { icon: 'copy-outline',          color: '#00838F', label: 'Mes copiado' },
+  apply_template:  { icon: 'clipboard-outline',     color: '#E65100', label: 'Plantilla aplicada' },
+  create_user:     { icon: 'person-add-outline',    color: '#2E7D32', label: 'Usuario creado' },
+  update_user:     { icon: 'pencil-outline',        color: '#F57F17', label: 'Usuario editado' },
+  deactivate_user: { icon: 'person-remove-outline', color: '#B71C1C', label: 'Usuario desactivado' },
+  reopen_schedule: { icon: 'lock-open-outline',     color: '#AD1457', label: 'Rol reabierto' },
 };
 
 const FILTER_GROUPS = [
@@ -756,7 +756,7 @@ function BitacoraManager() {
         <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>
       ) : rows.length === 0 ? (
         <View style={styles.center}>
-          <Ionicons name="clipboard-outline" size={48} color={COLORS.textLight} />
+          <Ionicons name="newspaper-outline" size={48} color={COLORS.textLight} />
           <Text style={[styles.cardMeta, { marginTop: 12, textAlign: 'center' }]}>Sin registros aún.{'\n'}Las acciones aparecerán aquí en tiempo real.</Text>
         </View>
       ) : (
