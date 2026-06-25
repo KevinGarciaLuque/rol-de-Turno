@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
-import { Surface, FAB, Modal, Portal, TextInput, Button, Chip, Switch, Snackbar, SegmentedButtons } from 'react-native-paper';
+import { Surface, FAB, Modal, Portal, TextInput, Button, Chip, Switch, Snackbar } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { COLORS } from '../constants/theme';
@@ -10,6 +10,14 @@ import { useAuth } from '../context/AuthContext';
 import { useShifts } from '../context/ShiftsContext';
 import EmployeesScreen from './EmployeesScreen';
 
+const ADMIN_TABS = [
+  { value: 'staff',       label: 'Personal',  icon: 'account-multiple'  },
+  { value: 'users',       label: 'Usuarios',  icon: 'account-key'       },
+  { value: 'departments', label: 'Áreas',     icon: 'hospital-building' },
+  { value: 'shifts',      label: 'Turnos',    icon: 'clock-outline'     },
+  { value: 'bitacora',    label: 'Bitácora',  icon: 'history'           },
+];
+
 export default function AdminScreen() {
   const [tab, setTab] = useState('staff');
   const [snack, setSnack] = useState('');
@@ -17,31 +25,30 @@ export default function AdminScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.pageWrap}>
-      <View style={styles.tabWrap}>
-        <SegmentedButtons
-          value={tab}
-          onValueChange={setTab}
-          buttons={[
-            { value: 'staff', label: 'Personal', icon: 'account-multiple' },
-            { value: 'users', label: 'Usuarios', icon: 'account-key' },
-            { value: 'departments', label: 'Áreas', icon: 'hospital-building' },
-            { value: 'shifts', label: 'Turnos', icon: 'clock-outline' },
-            { value: 'bitacora', label: 'Bitácora', icon: 'history' },
-          ]}
-        />
-      </View>
+        {/* Barra de tabs con scroll horizontal — soporta cualquier número sin truncar */}
+        <View style={styles.tabBarWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarContent}>
+            {ADMIN_TABS.map(t => {
+              const active = tab === t.value;
+              return (
+                <TouchableOpacity key={t.value} onPress={() => setTab(t.value)} style={[styles.tabBtn, active && styles.tabBtnActive]}>
+                  <Ionicons name={t.icon} size={20} color={active ? COLORS.primary : COLORS.textLight} />
+                  <Text style={[styles.tabBtnLabel, active && styles.tabBtnLabelActive]}>{t.label}</Text>
+                  {active && <View style={styles.tabBtnUnderline} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <View style={styles.tabBarBorder} />
+        </View>
 
-      {tab === 'staff'
-        ? <EmployeesScreen />
-        : tab === 'users'
-        ? <UsersManager notify={setSnack} />
-        : tab === 'departments'
-        ? <DepartmentsManager notify={setSnack} />
-        : tab === 'shifts'
-        ? <ShiftTypesManager notify={setSnack} />
-        : <BitacoraManager />}
+        {tab === 'staff'       ? <EmployeesScreen />
+        : tab === 'users'      ? <UsersManager notify={setSnack} />
+        : tab === 'departments'? <DepartmentsManager notify={setSnack} />
+        : tab === 'shifts'     ? <ShiftTypesManager notify={setSnack} />
+        :                        <BitacoraManager />}
 
-      <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={2500}>{snack}</Snackbar>
+        <Snackbar visible={!!snack} onDismiss={() => setSnack('')} duration={2500}>{snack}</Snackbar>
       </View>
     </View>
   );
@@ -794,7 +801,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   pageWrap: { maxWidth: 1080, width: '100%', alignSelf: 'center', flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabWrap: { paddingHorizontal: 12, paddingVertical: 10, maxWidth: 520, width: '100%', alignSelf: 'center' },
+  tabBarWrap: { backgroundColor: COLORS.surface, borderBottomWidth: 0 },
+  tabBarContent: { paddingHorizontal: 8 },
+  tabBarBorder: { height: 1, backgroundColor: COLORS.border },
+  tabBtn: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 8, position: 'relative', minWidth: 80 },
+  tabBtnActive: {},
+  tabBtnLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textLight, marginTop: 3 },
+  tabBtnLabelActive: { color: COLORS.primary, fontWeight: '700' },
+  tabBtnUnderline: { position: 'absolute', bottom: 0, left: 12, right: 12, height: 2.5, borderRadius: 2, backgroundColor: COLORS.primary },
   toolbar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingBottom: 2, maxWidth: 960, width: '100%', alignSelf: 'center' },
 
   list: { padding: 12, gap: 8, alignItems: 'center' },
